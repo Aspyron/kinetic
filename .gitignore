@@ -1,0 +1,4 @@
+*.ll
+*.exe
+*.o
+kinetic_app
