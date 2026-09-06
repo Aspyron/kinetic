@@ -1,0 +1,11 @@
+fn main() {
+    let list = [10, 20, 30]
+    let first = list[0]
+    let third = list[2]
+
+    if first < third {
+        print("Arrays work!")
+    } else {
+        print("Something broke!")
+    }
+}

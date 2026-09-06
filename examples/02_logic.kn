@@ -1,0 +1,20 @@
+// Control flow in Kinetic is super straightforward. 
+// No parentheses around conditions, just clean brackets.
+
+fn main() {
+    let mut counter = 0
+    let max = 5
+
+    while counter < max {
+        if counter == 3 {
+            print("We hit the lucky number 3!")
+        } else {
+            print(counter)
+        }
+        
+        // Don't forget to increment the counter, or you'll loop forever!
+        counter = counter + 1
+    }
+    
+    print("Done looping!")
+}

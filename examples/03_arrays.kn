@@ -1,0 +1,18 @@
+// Arrays let you store multiple items of the same type sequentially.
+// Kinetic handles the pointer math behind the scenes.
+
+fn main() {
+    let numbers = [10, 20, 30, 40, 50]
+    
+    // Arrays are zero-indexed
+    let first = numbers[0]
+    let third = numbers[2]
+    
+    let sum = first + third
+    
+    if sum == 40 {
+        print("Math and arrays work perfectly!")
+    } else {
+        print("Wait, something is broken...")
+    }
+}

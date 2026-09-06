@@ -1,0 +1,12 @@
+// Welcome to Kinetic!
+// Variables are immutable by default, meaning they can't change once set.
+// The compiler is smart enough to figure out the types for you.
+
+fn main() {
+    let company = "Aspyron, LLC"
+    let year = 2026
+    
+    print("Welcome to Kinetic, brought to you by:")
+    print(company)
+    print(year)
+}
