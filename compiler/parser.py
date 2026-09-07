@@ -1,6 +1,4 @@
-"""Recursive-descent parser for Kinetic V1."""
-
-from kinetic.ast import (
+from .ast import (
     ArrayExpr,
     AssignStatement,
     BinaryExpr,
@@ -18,8 +16,8 @@ from kinetic.ast import (
     StringExpr,
     WhileStatement,
 )
-from kinetic.errors import ParseError
-from kinetic.tokens import Token, TokenKind
+from .errors import ParseError
+from .tokens import Token, TokenKind
 
 
 class Parser:
@@ -55,7 +53,7 @@ class Parser:
         return False
 
     def _parse_function(self) -> Function:
-        self._expect(TokenKind.FN, "Expected 'fn'")
+        self._expect(TokenKind.FUNC, "Expected 'func'")
         name = self._expect(TokenKind.IDENT, "Expected function name").value
         self._expect(TokenKind.LPAREN, "Expected '('")
         parameters = self._parse_parameters()
@@ -85,18 +83,18 @@ class Parser:
         return body
 
     def _parse_statement(self) -> Statement:
-        if self._match(TokenKind.LET):
-            is_mut = self._match(TokenKind.MUT)
+        if self.current.kind in (TokenKind.LET, TokenKind.MUT):
+            is_mut = self._advance().kind is TokenKind.MUT
             name = self._expect(TokenKind.IDENT, "Expected variable name").value
             self._expect(TokenKind.EQUAL, "Expected '='")
             return LetStatement(name, self._parse_expression(), is_mut)
-            
+
         if self._match(TokenKind.WHILE):
             condition = self._parse_expression()
             self._expect(TokenKind.LBRACE, "Expected '{'")
             body = self._parse_block()
             return WhileStatement(condition, body)
-            
+
         if self._match(TokenKind.IF):
             condition = self._parse_expression()
             self._expect(TokenKind.LBRACE, "Expected '{'")
@@ -106,13 +104,13 @@ class Parser:
                 self._expect(TokenKind.LBRACE, "Expected '{'")
                 else_branch = self._parse_block()
             return IfStatement(condition, then_branch, else_branch)
-            
+
         if self.current.kind is TokenKind.IDENT:
             if self.index + 1 < len(self.tokens) and self.tokens[self.index + 1].kind is TokenKind.EQUAL:
                 name = self._advance().value
                 self._expect(TokenKind.EQUAL, "Expected '='")
                 return AssignStatement(name, self._parse_expression())
-                
+
         return ExpressionStatement(self._parse_expression())
 
     def _parse_expression(self) -> Expr:

@@ -1,8 +1,6 @@
-"""LLVM IR generation for Kinetic V1."""
-
 from llvmlite import binding, ir
 
-from kinetic.ast import (
+from .ast import (
     ArrayExpr,
     AssignStatement,
     BinaryExpr,
@@ -20,8 +18,8 @@ from kinetic.ast import (
     StringExpr,
     WhileStatement,
 )
-from kinetic.errors import CompileError
-from kinetic.types import FunctionType, KType
+from .errors import CompileError
+from .types import FunctionType, KType
 
 
 class LLVMBackend:
@@ -81,7 +79,7 @@ class LLVMBackend:
         builder = ir.IRBuilder(llvm_function.append_basic_block("entry"))
         environment = dict(zip(function.parameters, llvm_function.args))
         mutables: set[str] = set()
-        
+
         last_value = self._emit_block(function.body, builder, environment, mutables)
 
         if function.name == "main":
@@ -110,13 +108,13 @@ class LLVMBackend:
                 else:
                     env[statement.name] = val
                 last_value = None
-                
+
             elif isinstance(statement, AssignStatement):
                 val = self._require_value(self._emit_expr(statement.value, builder, env, muts))
                 ptr = env[statement.name]
                 builder.store(val, ptr)
                 last_value = None
-                
+
             elif isinstance(statement, WhileStatement):
                 cond_block = builder.function.append_basic_block("while.cond")
                 body_block = builder.function.append_basic_block("while.body")
@@ -135,56 +133,45 @@ class LLVMBackend:
 
                 builder.position_at_end(end_block)
                 last_value = None
-                
+
             elif isinstance(statement, IfStatement):
                 last_value = self._emit_if(statement, builder, env, muts)
-                
+
             elif isinstance(statement, ExpressionStatement):
                 last_value = self._emit_expr(statement.expression, builder, env, muts)
-                
+
         return last_value
 
     def _emit_if(self, statement: IfStatement, builder: ir.IRBuilder, environment: dict[str, ir.Value], mutables: set[str]) -> ir.Value | None:
-        # First, we need to evaluate the condition (is it true or false?)
         condition = self._require_value(self._emit_expr(statement.condition, builder, environment, mutables))
-        
-        # We need distinct basic blocks for LLVM to jump around to. Think of these as "goto" labels.
+
         then_block = builder.function.append_basic_block("then")
         merge_block = builder.function.append_basic_block("ifcont")
-        
+
         if statement.else_branch is not None:
-            # We have an else branch! Setup a block for it and conditionally branch.
             else_block = builder.function.append_basic_block("else")
             builder.cbranch(condition, then_block, else_block)
-            
-            # Now let's fill in the else block instructions
+
             builder.position_at_end(else_block)
             else_val = self._emit_block(statement.else_branch, builder, environment, mutables)
-            
-            # If the block didn't end with a return statement, jump to our merge point
+
             if not builder.block.is_terminated:
                 builder.branch(merge_block)
             else_end_block = builder.block
         else:
-            # No else branch, just jump straight to the merge block if the condition is false
             builder.cbranch(condition, then_block, merge_block)
             else_val = None
             else_end_block = None
 
-        # Fill in the 'then' block
         builder.position_at_end(then_block)
         then_val = self._emit_block(statement.then_branch, builder, environment, mutables)
-        
-        # Don't forget to jump to the merge block when we're done here!
+
         if not builder.block.is_terminated:
             builder.branch(merge_block)
         then_end_block = builder.block
-        
-        # Finally, move our instruction builder to the merge block so execution can continue
+
         builder.position_at_end(merge_block)
-        
-        # Hack/Tricky part: If both branches evaluate to a value, we need a Phi node.
-        # This tells LLVM: "If we came from the 'then' block, use this value. If we came from the 'else' block, use that value."
+
         if statement.else_branch is not None and then_val is not None and else_val is not None:
             if then_val.type == else_val.type and not isinstance(then_val.type, ir.VoidType):
                 phi = builder.phi(then_val.type, name="ifres")

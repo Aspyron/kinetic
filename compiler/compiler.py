@@ -1,15 +1,12 @@
-"""Public orchestration API for the Kinetic compilation pipeline."""
-
 from llvmlite import binding
 
-from kinetic.analyzer import TypeAnalyzer
-from kinetic.backend import LLVMBackend
-from kinetic.lexer import Lexer
-from kinetic.parser import Parser
+from .analyzer import TypeAnalyzer
+from .backend import LLVMBackend
+from .lexer import Lexer
+from .parser import Parser
 
 
 def compile_source(source: str) -> str:
-    """Compile Kinetic source text into verified textual LLVM IR."""
     tokens = Lexer(source).tokenize()
     program = Parser(tokens).parse()
     function_types = TypeAnalyzer(program).analyze()

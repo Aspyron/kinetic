@@ -1,9 +1,7 @@
-"""Regular-expression lexer for Kinetic V1."""
-
 import re
 
-from kinetic.errors import LexerError
-from kinetic.tokens import Token, TokenKind
+from .errors import LexerError
+from .tokens import Token, TokenKind
 
 
 class Lexer:
@@ -30,7 +28,7 @@ class Lexer:
         r"|(?P<COMMA>,)"
     )
     _keywords = {
-        "fn": TokenKind.FN,
+        "func": TokenKind.FUNC,
         "let": TokenKind.LET,
         "mut": TokenKind.MUT,
         "while": TokenKind.WHILE,

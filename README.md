@@ -1,82 +1,109 @@
-# Welcome to Kinetic 👋
+# Kinetic
 
-> A systems-level programming language designed for humans. Achieve zero-cost performance and strict safety, completely free from the mental gymnastics of complex memory ownership models.
+A small language compiler, written in Python and targeting LLVM.
 
-Hey there! If you're reading this, you're looking at the very first prototype of the Kinetic compiler (V1). 
+[Language guide](docs/syntax_guide.md) · [Architecture](docs/architecture.md) · [Installation](INSTALL.md) · [Contributing](CONTRIBUTING.md) · [Roadmap](ROADMAP.md)
 
-We built this because we wanted the blazing-fast execution speeds of C/C++ without having to constantly fight with the compiler over borrow checking or manually tracking `malloc` and `free`. 
+Kinetic is an early compiler prototype (1.0.0). It reads Kinetic source, performs
+lexical, syntactic, and type analysis, emits verified textual LLVM IR through
+llvmlite, and uses Clang to produce a native executable.
 
-This repository contains everything you need to take `.kn` source files, parse them, run type-checking, and spit out LLVM Intermediate Representation (IR). From there, we hand it off to `clang` to give you a native, runnable binary!
+The long-term goal is a readable systems language. The current prototype is
+deliberately small; it does not yet provide a standard library or a production
+memory-safety model.
 
-## What's in the box? 📦
+## Language features
 
-V1 is intentionally small and focused so we can get the core architecture right before we pile on features. Right now we support:
-- Implicit returns
-- Super smart type inference (you don't write `: i32`, we figure it out)
-- `if` / `else` control flow
-- `while` loops
-- Mutable and immutable variables
-- Arrays and array indexing!
+- Type inference and implicit function returns.
+- Immutable bindings with opt-in mutation.
+- Conditional branches and loops.
+- Integer and string values, integer arrays, and array indexing.
+- A built-in printing operation for one integer or string at a time.
 
-## Project Structure
+Start with the [language guide](docs/syntax_guide.md) and the programs in
+[examples](examples/README.md).
+
+## Hello World
+
+The [introductory example](examples/01_hello.kn) is a complete Kinetic program:
 
 ```text
-Kinetic/
-|-- kinetic.py             # Our friendly CLI tool!
-|-- main.kn                # Your playground file
-|-- requirements.txt       # Python dependencies (just llvmlite)
-|-- README.md              # You are here!
-|-- docs/
-|   `-- syntax_guide.md    # Quick tutorial on how to write Kinetic
-|-- examples/              # Cool snippets showing what Kinetic can do
-`-- kinetic/               # The actual compiler brains
-    |-- __init__.py
-    |-- errors.py          # Custom error handling
-    |-- tokens.py          # The building blocks (Tokens)
-    |-- lexer.py           # Breaks your code down into Tokens
-    |-- ast.py             # The Tree structure of your code
-    |-- parser.py          # Turns Tokens into the AST
-    |-- types.py           # Type Definitions (Int, String, Array)
-    |-- analyzer.py        # Validates types and logic (The semantic pass)
-    |-- backend.py         # Converts the AST into LLVM machine instructions
-    |-- compiler.py        # Glues all the phases together
-    `-- cli.py             # Handles the 'build' and 'run' terminal commands
+func main() {
+    print("Hello World!")
+}
 ```
 
-## Getting Started 🚀
+Functions use [`func`](compiler/lexer.py:33), immutable bindings use
+[`let`](compiler/lexer.py:34), and mutable bindings use
+[`mut`](compiler/lexer.py:35). See the [syntax guide](docs/syntax_guide.md) for
+declarations, reassignment, and function calls.
 
-**Requirements:**
-- Python 3.10 or newer
-- `clang` installed and in your system PATH (so we can build the final binary).
+## Quick start
 
-**Installation:**
+You need Python 3.10 or newer, a compatible llvmlite release, and Clang on your
+executable search path. See [installation](INSTALL.md) for details.
+
+Install the Python dependency:
+
 ```shell
-# Grab the LLVM Python bindings
 python -m pip install -r requirements.txt
 ```
 
-**Running Code:**
-We built a super handy CLI wrapper around the compiler.
+Compile and run the introductory example:
 
-If you just want to compile your code to a binary:
 ```shell
-python kinetic.py build main.kn
+python kinetic.py run examples/01_hello.kn
 ```
 
-If you want to compile AND run it immediately:
+Compile without running the result:
+
 ```shell
-python kinetic.py run main.kn
+python kinetic.py build examples/01_hello.kn
 ```
 
-## How the magic happens
+The root [launcher](kinetic.py) provides the build and run commands. Generated IR
+and native binaries are written next to the input source.
 
-When you run `kinetic.py`, your code goes on a little journey:
+## Repository layout
 
-1. **Lexical Analysis (`lexer.py`)**: First, we chew through your source code using Regex and chop it up into `Tokens` (like `NUMBER`, `IDENTIFIER`, `WHITESPACE`). We attach line numbers to everything so if you make a typo, we can tell you exactly where it is!
-2. **Parsing (`parser.py`)**: We take that flat list of tokens and build a 3D tree out of it (the Abstract Syntax Tree). This is where we figure out the order of operations (like doing `*` before `+`).
-3. **Semantic Analysis (`analyzer.py`)**: The AST doesn't know what types are. The analyzer walks the tree and acts like a detective. Oh, `x = 5`? `x` must be an Integer! Trying to do `x + "hello"`? The analyzer throws a compilation error.
-4. **LLVM Generation (`backend.py`)**: Finally, we translate your validated AST into LLVM IR. For example, a `+` symbol becomes an `add` instruction, and arrays get their own memory space allocated via `alloca`. We then pass that IR to `clang` to give you a real binary!
+Compiler sources, documentation, examples, and development utilities each have
+one clear location.
 
-## Next Steps
+| Area | Responsibility |
+| --- | --- |
+| [Compiler](compiler/README.md) | A flat Python package containing all compiler stages and the CLI. |
+| [Documentation](docs/README.md) | Language reference, architecture, and repository design. |
+| [Examples](examples/README.md) | Small programs demonstrating the 1.0.0 language. |
+| [Tools](tools/README.md) | Repository maintenance utilities, separate from the compiler CLI. |
+| [Tests](tests/README.md) | Static repository checks; no native builds are required. |
+| [Package configuration](pyproject.toml) | Python packaging and the optional installed command. |
 
-Want to see what Kinetic code looks like? Go check out the `examples/` folder, or read the full breakdown in `docs/syntax_guide.md`. Happy coding!
+See the [layout guide](docs/repository_layout.md) for the directory responsibilities.
+
+## Development
+
+Run the dependency-free, static-only repository checks:
+
+```shell
+python -B tools/check.py
+```
+
+These check source syntax, local import targets, the repository structure, and
+documentation and source consistency. They do **not** import the Kinetic compiler,
+emit LLVM IR, invoke Clang, or execute Kinetic programs.
+
+The [GitHub Actions workflow](.github/workflows/ci.yml) runs the same checker on
+pushes and pull requests, using Python 3.10 and 3.14 on Windows and Linux. It can
+also be started manually from GitHub's Actions tab. A passing static check is not
+a compiler-behavior result; targeted manual checks remain useful when native
+builds are appropriate. See [contributing](CONTRIBUTING.md).
+
+## Direction
+
+The current goal is to build the foundations needed for a compiler written in
+Kinetic that can compile itself. Version 1.0.0 is not self-hosting yet. The
+[roadmap](ROADMAP.md) separates completed work, current planning, and future milestones.
+
+## License
+
+See [LICENSE](LICENSE).

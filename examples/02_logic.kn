@@ -1,8 +1,8 @@
 // Control flow in Kinetic is super straightforward. 
 // No parentheses around conditions, just clean brackets.
 
-fn main() {
-    let mut counter = 0
+func main() {
+    mut counter = 0
     let max = 5
 
     while counter < max {

@@ -1,5 +1,3 @@
-"""Kinetic type representations."""
-
 from dataclasses import dataclass
 from enum import Enum, auto
 

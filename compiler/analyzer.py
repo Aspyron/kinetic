@@ -1,6 +1,4 @@
-"""Semantic analysis and type inference for Kinetic V1."""
-
-from kinetic.ast import (
+from .ast import (
     ArrayExpr,
     AssignStatement,
     BinaryExpr,
@@ -18,13 +16,11 @@ from kinetic.ast import (
     StringExpr,
     WhileStatement,
 )
-from kinetic.errors import CompileError
-from kinetic.types import FunctionType, KType
+from .errors import CompileError
+from .types import FunctionType, KType
 
 
 class TypeAnalyzer:
-    """Infers function, parameter, variable, and expression types."""
-
     def __init__(self, program: Program):
         self.program = program
         function_names = {function.name for function in program.functions}
@@ -64,45 +60,40 @@ class TypeAnalyzer:
 
     def _analyze_function(self, function: Function) -> bool:
         signature = self.types[function.name]
-        
-        # We zip the parameter names with their current inferred types to build the initial environment
+
         environment = dict(zip(function.parameters, signature.parameters))
-        
-        # Keep track of which variables are actually allowed to be modified
+
         mutables: set[str] = set()
-        
+
         last_type = self._analyze_block(function.body, environment, mutables)
 
         changed = False
-        
-        # Now we feed the inferred types back into the function signature
+
         for index, parameter in enumerate(function.parameters):
             inferred = environment[parameter]
             unified = self._unify(
                 signature.parameters[index], inferred, f"parameter {parameter!r}"
             )
-            # If the type just became more specific (e.g. UNKNOWN -> INT), we mark it as changed
             if unified is not signature.parameters[index]:
                 signature.parameters[index] = unified
                 changed = True
 
-        # C standard dictates the entry point main() must return an integer (usually 0 for success).
         expected_result = KType.INT if function.name == "main" else last_type
-        
+
         unified_result = self._unify(
             signature.result, expected_result, f"return value of {function.name!r}"
         )
         if unified_result is not signature.result:
             signature.result = unified_result
             changed = True
-            
+
         return changed
 
     def _analyze_block(self, block: list[Statement], environment: dict[str, KType], mutables: set[str]) -> KType:
         last_type = KType.VOID
         original_keys = set(environment.keys())
         original_mutables = set(mutables)
-        
+
         for statement in block:
             if isinstance(statement, LetStatement):
                 value_type = self._expr_type(statement.value, environment)
@@ -112,7 +103,7 @@ class TypeAnalyzer:
                 if statement.is_mut:
                     mutables.add(statement.name)
                 last_type = KType.VOID
-                
+
             elif isinstance(statement, AssignStatement):
                 if statement.name not in environment:
                     raise CompileError(f"Undefined variable {statement.name!r}")
@@ -121,7 +112,7 @@ class TypeAnalyzer:
                 value_type = self._expr_type(statement.value, environment)
                 self._unify(environment[statement.name], value_type, f"assignment to {statement.name!r}")
                 last_type = KType.VOID
-                
+
             elif isinstance(statement, WhileStatement):
                 cond_type = self._expr_type(statement.condition, environment)
                 self._constrain_name(statement.condition, KType.BOOL, environment)
@@ -129,30 +120,30 @@ class TypeAnalyzer:
                     raise CompileError("while condition must be boolean")
                 self._analyze_block(statement.body, environment, mutables)
                 last_type = KType.VOID
-                
+
             elif isinstance(statement, IfStatement):
                 cond_type = self._expr_type(statement.condition, environment)
                 self._constrain_name(statement.condition, KType.BOOL, environment)
                 if cond_type not in (KType.BOOL, KType.UNKNOWN):
                     raise CompileError("if condition must be boolean")
-                
+
                 then_type = self._analyze_block(statement.then_branch, environment, mutables)
                 if statement.else_branch is not None:
                     else_type = self._analyze_block(statement.else_branch, environment, mutables)
                     last_type = self._unify(then_type, else_type, "if/else branches")
                 else:
                     last_type = KType.VOID
-                    
+
             elif isinstance(statement, ExpressionStatement):
                 last_type = self._expr_type(statement.expression, environment)
-                
+
         for key in list(environment.keys()):
             if key not in original_keys:
                 del environment[key]
         for key in list(mutables):
             if key not in original_mutables:
                 mutables.remove(key)
-                
+
         return last_type
 
     def _expr_type(self, expression: Expr, environment: dict[str, KType]) -> KType:

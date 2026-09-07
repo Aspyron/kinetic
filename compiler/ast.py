@@ -1,10 +1,8 @@
-"""Abstract syntax tree nodes for Kinetic V1."""
-
 from dataclasses import dataclass
 
 
 class Expr:
-    """Base class for expressions."""
+    pass
 
 
 @dataclass
@@ -47,7 +45,7 @@ class IndexExpr(Expr):
 
 
 class Statement:
-    """Base class for statements."""
+    pass
 
 
 @dataclass

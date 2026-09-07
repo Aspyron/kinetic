@@ -1,11 +1,9 @@
-"""Token definitions shared by the lexer and parser."""
-
 from dataclasses import dataclass
 from enum import Enum, auto
 
 
 class TokenKind(Enum):
-    FN = auto()
+    FUNC = auto()
     LET = auto()
     MUT = auto()
     WHILE = auto()

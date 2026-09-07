@@ -1,4 +1,21 @@
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Packaging and build directories
+build/
+dist/
+*.egg-info/
+
+# Compiler-generated artifacts
 *.ll
 *.exe
 *.o
 kinetic_app
+
+# Extensionless binaries produced on Unix-like systems
+/examples/01_hello
+/examples/02_logic
+/examples/03_arrays
