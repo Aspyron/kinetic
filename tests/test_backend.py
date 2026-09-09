@@ -20,7 +20,7 @@ class BackendTests(unittest.TestCase):
             with self.subTest(example=example.name):
                 llvm_ir = compile_source(example.read_text(encoding="utf-8"))
                 self.assertIn("define", llvm_ir)
-                self.assertIn("@main", llvm_ir)
+                self.assertIn('@"main"', llvm_ir)
 
     def test_hello_world_ir_contains_printf(self):
         from compiler.compiler import compile_source
