@@ -1,0 +1,13 @@
+// WARNING: the inner 'value' shadows the outer one inside the if-block.
+// This is legal, but easy to misread, so the compiler warns about it.
+
+func main() {
+    let value = 10
+
+    if value > 5 {
+        let value = 99
+        print(value)
+    }
+
+    print(value)
+}

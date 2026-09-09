@@ -1,0 +1,8 @@
+// ERROR: 'let mut' was removed in 1.0.0.
+// Mutable bindings are declared with standalone 'mut': mut counter = 0
+
+func main() {
+    let mut counter = 0
+    counter = counter + 1
+    print(counter)
+}

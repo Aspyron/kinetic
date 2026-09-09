@@ -1,0 +1,15 @@
+// The compiler tracks the length of array literals at compile time.
+// Valid constant indexes compile cleanly, and the analyzer knows the array
+// has exactly three elements.
+
+func main() {
+    let scores = [90, 85, 77]
+
+    let first = scores[0]
+    let last = scores[2]
+
+    print("Highest score:")
+    print(first)
+    print("Lowest score:")
+    print(last)
+}

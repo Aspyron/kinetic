@@ -4,7 +4,7 @@ A small language compiler, written in Python and targeting LLVM.
 
 [Language guide](docs/syntax_guide.md) · [Architecture](docs/architecture.md) · [Installation](INSTALL.md) · [Contributing](CONTRIBUTING.md) · [Roadmap](ROADMAP.md)
 
-Kinetic is an early compiler prototype (1.0.0). It reads Kinetic source, performs
+Kinetic is an early compiler prototype (1.1.0). It reads Kinetic source, performs
 lexical, syntactic, and type analysis, emits verified textual LLVM IR through
 llvmlite, and uses Clang to produce a native executable.
 
@@ -73,7 +73,7 @@ one clear location.
 | --- | --- |
 | [Compiler](compiler/README.md) | A flat Python package containing all compiler stages and the CLI. |
 | [Documentation](docs/README.md) | Language reference, architecture, and repository design. |
-| [Examples](examples/README.md) | Small programs demonstrating the 1.0.0 language. |
+| [Examples](examples/README.md) | Small programs demonstrating the 1.1.0 language. |
 | [Tools](tools/README.md) | Repository maintenance utilities, separate from the compiler CLI. |
 | [Tests](tests/README.md) | Static repository checks; no native builds are required. |
 | [Package configuration](pyproject.toml) | Python packaging and the optional installed command. |
@@ -88,9 +88,10 @@ Run the dependency-free, static-only repository checks:
 python -B tools/check.py
 ```
 
-These check source syntax, local import targets, the repository structure, and
-documentation and source consistency. They do **not** import the Kinetic compiler,
-emit LLVM IR, invoke Clang, or execute Kinetic programs.
+The same command runs static checks (syntax, layout, links, keyword mapping)
+plus **frontend behavioral tests** against the lexer, parser, and analyzer —
+including the new compile-time diagnostics. Backend and native suites skip
+cleanly without llvmlite or Clang.
 
 The [GitHub Actions workflow](.github/workflows/ci.yml) runs the same checker on
 pushes and pull requests, using Python 3.10 and 3.14 on Windows and Linux. It can
@@ -101,7 +102,7 @@ builds are appropriate. See [contributing](CONTRIBUTING.md).
 ## Direction
 
 The current goal is to build the foundations needed for a compiler written in
-Kinetic that can compile itself. Version 1.0.0 is not self-hosting yet. The
+Kinetic that can compile itself. Version 1.1.0 is not self-hosting yet. The
 [roadmap](ROADMAP.md) separates completed work, current planning, and future milestones.
 
 ## License

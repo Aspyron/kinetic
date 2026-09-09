@@ -1,0 +1,6 @@
+// ERROR: 'fn' was removed in 1.0.0.
+// The lexer reports exactly what to use instead: 'func'.
+
+fn main() {
+    print("This never compiles")
+}

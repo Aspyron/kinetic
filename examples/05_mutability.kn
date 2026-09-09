@@ -1,0 +1,16 @@
+// Immutable bindings (let) and mutable bindings (mut) are declared with
+// separate keywords. Only mutable bindings can be reassigned, and the
+// compiler enforces that at compile time.
+
+func main() {
+    let name = "Kinetic"
+    mut counter = 0
+
+    while counter < 3 {
+        print(name)
+        counter = counter + 1
+    }
+
+    print("Final count:")
+    print(counter)
+}

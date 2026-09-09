@@ -5,7 +5,7 @@
 Kinetic's next major destination is **self-hosting**: a compiler written in
 Kinetic that can compile its own source and build a working successor compiler.
 
-The current compiler is a Python 1.0.0 prototype. It is not self-hosting, and no
+The current compiler is a Python 1.1.0 prototype. It is not self-hosting, and no
 compiler stage has been ported to Kinetic yet. The language and runtime need
 additional capabilities before that port is practical.
 
@@ -25,10 +25,14 @@ prototype feature is not a promise of production readiness or memory safety.
 - [x] Command-line build and run workflows using Clang for native executables.
 - [x] A flat compiler package, example programs, user documentation, and agent guidance.
 - [x] Static checks for repository layout, Python syntax, imports, and documentation.
+- [x] Structured compile-time diagnostics: located `error: line:column` output,
+  migration hints for removed syntax, unused-variable and shadowing warnings,
+  constant array-bounds errors, and pluralized warning summaries.
 
 See the [syntax guide](docs/syntax_guide.md) for the current language and the
-[architecture guide](docs/architecture.md) for the implementation. The automated
-checks currently cover repository structure, **not compiler behavior**.
+[architecture guide](docs/architecture.md) for the implementation. Frontend
+behavioral tests run without any external dependency; backend tests require
+llvmlite and native tests require Clang (both are opt-in and skip cleanly).
 
 ## In progress
 
@@ -62,18 +66,25 @@ port or an implemented runtime expansion.
 tests have concrete specifications. The milestones below are the proposed
 sequence; their implementations remain future work.
 
-## Future — milestones toward self-hosting
+## Milestones toward self-hosting
 
 ### 1. Establish a reliable bootstrap compiler
 
-- [ ] Add automated lexer, parser, analyzer, and code-generation regression tests.
-- [ ] Add native behavior tests and expected diagnostics for invalid programs.
-- [ ] Specify and test scoping, inference, function results, array bounds and
-  lifetimes, and error handling; address gaps revealed by those tests.
-- [ ] Define the supported toolchain versions and a repeatable verification workflow.
+- [x] Add automated lexer, parser, analyzer, and code-generation regression tests
+  ([frontend](tests/test_frontend.py), [backend](tests/test_backend.py)).
+- [x] Add expected diagnostics for invalid programs (located errors, migration
+  hints, warning emission, and summary pluralization).
+- [x] Specify and test scoping, inference, immutability, array bounds, and error
+  handling within the 1.0.0 language surface.
+- [x] Define the supported toolchain versions (llvmlite pinned in
+  [requirements.txt](requirements.txt), Python 3.10+, Clang for native builds)
+  and a repeatable verification workflow ([static + behavioral CI](.github/workflows/ci.yml)).
+- [ ] Run the native example suite on a machine with Clang
+  (`KINETIC_NATIVE_TESTS=1 python -B tools/check.py`) and record expected outputs.
 
-**Complete when:** the chosen 1.0.0 baseline has reproducible behavioral coverage,
-including failure cases, and its documented guarantees match its implementation.
+**Status:** substantially complete. The remaining item is the first hosted CI
+run plus a native-build pass on a Clang-equipped machine; neither changes the
+1.0.0 language, they only confirm the toolchain end to end.
 
 ### 2. Add the language and runtime building blocks
 

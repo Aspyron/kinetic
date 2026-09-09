@@ -1,0 +1,8 @@
+// ERROR: bindings declared with 'let' are immutable.
+// Reassigning one is a compile-time error.
+
+func main() {
+    let count = 1
+    count = 2
+    print(count)
+}

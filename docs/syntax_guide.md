@@ -1,6 +1,6 @@
 # The Kinetic Syntax Guide
 
-This guide describes the 1.0.0 prototype. Kinetic explores readable systems-language syntax, but it does not yet provide a production memory-safety model.
+This guide describes the 1.1.0 prototype. Kinetic explores readable systems-language syntax, but it does not yet provide a production memory-safety model.
 
 Kinetic is designed to feel as easy and readable, but it compiles down to raw machine code via LLVM. Let's take a quick tour of how things work!
 
@@ -108,4 +108,4 @@ Behind the scenes, the LLVM backend uses pointer arithmetic to access array elem
 
 ---
 
-That's the 1.0.0 language surface. Explore the [complete examples](../examples/README.md) to see these features together.
+That's the 1.1.0 language surface. Explore the [complete examples](../examples/README.md) to see these features together.

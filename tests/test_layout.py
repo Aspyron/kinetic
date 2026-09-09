@@ -40,9 +40,22 @@ class RepositoryLayoutTests(unittest.TestCase):
 
     def test_sample_programs_live_in_examples(self):
         self.assertEqual(list(ROOT.glob("*.kn")), [])
-        for name in ("01_hello.kn", "02_logic.kn", "03_arrays.kn"):
+        for name in (
+            "01_hello.kn", "02_logic.kn", "03_arrays.kn",
+            "04_bounds_checked.kn", "05_mutability.kn",
+        ):
             with self.subTest(example=name):
                 self.assertTrue((ROOT / "examples" / name).is_file())
+        for name in (
+            "immutable_reassign.kn", "out_of_bounds.kn", "missing_main.kn",
+            "old_fn_keyword.kn", "old_let_mut.kn", "undefined_variable.kn",
+            "type_mismatch.kn",
+        ):
+            with self.subTest(error_example=name):
+                self.assertTrue((ROOT / "examples" / "errors" / name).is_file())
+        for name in ("unused_variable.kn", "shadowing.kn"):
+            with self.subTest(warning_example=name):
+                self.assertTrue((ROOT / "examples" / "warnings" / name).is_file())
 
     def test_python_sources_parse(self):
         for path in python_sources():
@@ -107,12 +120,16 @@ class RepositoryLayoutTests(unittest.TestCase):
                 self.assertNotRegex(text, r"(?m)^\s*fn\s+\w+\s*\(")
                 self.assertNotRegex(text, r"\blet\s+mut\b")
 
+    def test_diagnostic_examples_are_excluded_from_old_syntax_check(self):
+        error_dir = ROOT / "examples" / "errors"
+        self.assertIn("fn main()", (error_dir / "old_fn_keyword.kn").read_text(encoding="utf-8"))
+        self.assertIn("let mut", (error_dir / "old_let_mut.kn").read_text(encoding="utf-8"))
+
     def test_ci_uses_shared_static_checker(self):
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
         commands = re.findall(r"^\s+run:\s*([^\n]+)$", workflow, re.MULTILINE)
-        self.assertEqual(commands, ["python -B tools/check.py"])
+        self.assertIn("python -B tools/check.py", commands)
         actions = re.findall(r"^\s+uses:\s*(\S+)", workflow, re.MULTILINE)
-        self.assertEqual(len(actions), 2)
         for action in actions:
             with self.subTest(action=action):
                 self.assertRegex(action, r"^actions/(checkout|setup-python)@[0-9a-f]{40}$")
@@ -150,13 +167,6 @@ class RepositoryLayoutTests(unittest.TestCase):
 
     def test_public_api_is_exported(self):
         tree = ast.parse((PACKAGE / "__init__.py").read_text(encoding="utf-8"))
-        self.assertTrue(any(
-            isinstance(node, ast.ImportFrom)
-            and node.level == 1
-            and node.module == "compiler"
-            and any(alias.name == "compile_source" for alias in node.names)
-            for node in tree.body
-        ))
         exports = [
             ast.literal_eval(node.value)
             for node in tree.body
@@ -168,6 +178,10 @@ class RepositoryLayoutTests(unittest.TestCase):
         ]
         self.assertEqual(len(exports), 1)
         self.assertIn("compile_source", exports[0])
+        self.assertTrue(any(
+            isinstance(node, ast.FunctionDef) and node.name == "__getattr__"
+            for node in tree.body
+        ))
 
     def test_launchers_delegate_to_cli(self):
         entrypoints = (

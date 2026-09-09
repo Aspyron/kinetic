@@ -1,6 +1,6 @@
 # Compiler architecture
 
-Kinetic's 1.0.0 implementation lives in the [compiler source directory](../compiler/README.md).
+Kinetic's 1.1.0 implementation lives in the [compiler source directory](../compiler/README.md).
 It is a flat Python package with separate modules for each compilation stage.
 
 ## Entry points
@@ -25,10 +25,20 @@ no separate implementations for these entry points.
 | IR verification | Textual IR → verified textual IR | [Pipeline coordinator](../compiler/compiler.py) using llvmlite's LLVM bindings |
 | Native build | Verified IR → native executable | [CLI](../compiler/cli.py) invoking Clang |
 
-The public orchestration function is
-[`compile_source()`](../compiler/compiler.py:11). It is re-exported by
-the package and is the single pipeline coordination point. It generates
-and verifies IR in memory; file output and native processes belong to the CLI.
+The public orchestration functions are
+[`compile_source()`](../compiler/compiler.py) and
+[`compile_with_diagnostics()`](../compiler/compiler.py). The latter returns a
+[`CompilationResult`](../compiler/diagnostics.py) carrying both the verified IR
+and a [`Diagnostics`](../compiler/diagnostics.py) collector. Errors raise
+located [`KineticError`](../compiler/errors.py) subclasses rendered by the CLI as
+`kinetic: error: line:column: message`; warnings are collected during analysis
+and printed with a pluralized summary such as `kinetic: 2 warnings emitted`.
+
+The analyzer emits warnings for unused bindings and shadowing, and reports
+errors for immutable reassignment, undefined names, type mismatches, constant
+out-of-bounds array indexes, and a missing `main` entry point. The lexer
+rejects removed syntax (such as `fn`) with an explicit migration hint, and the
+parser rejects `let mut` with guidance toward standalone `mut`.
 
 ## Shared representations and diagnostics
 
@@ -57,4 +67,4 @@ the repository root; the installed command uses the same code.
 
 The [roadmap](../ROADMAP.md) tracks the language, runtime, and validation work
 needed before Kinetic can host its own compiler. Those planned components are
-not part of the 1.0.0 implementation described here.
+not part of the 1.1.0 implementation described here.

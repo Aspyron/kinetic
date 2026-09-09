@@ -1,0 +1,29 @@
+# Error examples
+
+These programs **fail to compile on purpose**. Each one demonstrates a specific
+compile-time error so you can see what the diagnostic looks like.
+
+Build any of them with:
+
+```shell
+python kinetic.py build examples/errors/<file>.kn
+```
+
+You will see output shaped like:
+
+```text
+kinetic: error: <line>:<column>: <message>
+```
+
+| Program | Error it demonstrates |
+| --- | --- |
+| [immutable_reassign.kn](immutable_reassign.kn) | Reassigning a `let` binding — only `mut` bindings can change. |
+| [out_of_bounds.kn](out_of_bounds.kn) | A constant index past the end of a known-length array literal. |
+| [missing_main.kn](missing_main.kn) | A program with no `main` entry point. |
+| [old_fn_keyword.kn](old_fn_keyword.kn) | The removed `fn` keyword; the lexer reports the migration to `func`. |
+| [old_let_mut.kn](old_let_mut.kn) | The removed `let mut` form; mutable bindings use standalone `mut`. |
+| [undefined_variable.kn](undefined_variable.kn) | Using a name that was never declared. |
+| [type_mismatch.kn](type_mismatch.kn) | Mixing an integer and a string in arithmetic. |
+
+See [warnings](../warnings/README.md) for diagnostics that do **not** stop
+compilation.

@@ -1,0 +1,7 @@
+// ERROR: arithmetic operators work on integers.
+// Adding an integer to a string is a type error.
+
+func main() {
+    let result = 1 + "hello"
+    print(result)
+}

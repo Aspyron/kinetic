@@ -8,7 +8,7 @@ stages over adding infrastructure intended for a much larger language project.
 - [Installation](INSTALL.md) covers the source-checkout and editable-install workflows.
 - [Architecture](docs/architecture.md) explains the compilation pipeline.
 - [Repository layout](docs/repository_layout.md) explains where changes belong.
-- [Language guide](docs/syntax_guide.md) documents the existing 1.0.0 surface.
+- [Language guide](docs/syntax_guide.md) documents the existing 1.1.0 surface.
 - [Roadmap](ROADMAP.md) tracks implemented features and the path toward self-hosting.
 
 ## Where to make changes
@@ -40,18 +40,24 @@ Run the static checker before submitting a layout or documentation change:
 python -B tools/check.py
 ```
 
-It uses only the Python standard library, and does not import or run the compiler.
-The suite verifies Python syntax, internal import targets, the single compiler
-source location, public API exports, entry points, declaration-token references,
-the published Hello World example, and local documentation links. It does not
-prove runtime behavior or validate generated LLVM IR.
+The static portion uses only the Python standard library. It verifies Python
+syntax, internal import targets, the single compiler source location, public API
+exports, entry points, declaration-token references, the published Hello World
+example, and local documentation links.
+
+The same command also runs **frontend behavioral tests**, which exercise the
+lexer, parser, and analyzer directly (located errors, migration hints, warnings,
+constant bounds checks) without llvmlite or Clang. Backend and native suites
+skip cleanly when llvmlite or Clang is unavailable; set
+`KINETIC_NATIVE_TESTS=1` on a Clang-equipped machine to run native builds.
 
 ## GitHub CI
 
-The [workflow](.github/workflows/ci.yml) runs that same static checker on pushes,
-pull requests, and manual dispatches. It covers Windows and Linux with Python
-3.10 and 3.14. The matrix validates the static tools, not the native compiler's
-supported toolchain combinations.
+The [workflow](.github/workflows/ci.yml) runs the full local checker on pushes,
+pull requests, and manual dispatches (Windows and Linux, Python 3.10 and 3.14).
+A second `behavioral` job installs the pinned llvmlite from
+[requirements.txt](requirements.txt) and runs the frontend and backend suites on
+Ubuntu with Python 3.10.
 
 CI uses read-only repository permissions and official actions pinned to commit
 hashes. It does not install llvmlite or invoke Clang. Keep checks in the shared

@@ -1,82 +1,96 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from .diagnostics import SourceLocation
 
 
 class Expr:
-    pass
+    location: SourceLocation | None
 
 
 @dataclass
 class NumberExpr(Expr):
-    value: int
+    location: SourceLocation | None = None
+    value: int = 0
 
 
 @dataclass
 class StringExpr(Expr):
-    value: str
+    location: SourceLocation | None = None
+    value: str = ""
 
 
 @dataclass
 class NameExpr(Expr):
-    name: str
+    location: SourceLocation | None = None
+    name: str = ""
 
 
 @dataclass
 class BinaryExpr(Expr):
-    operator: str
-    left: Expr
-    right: Expr
+    location: SourceLocation | None = None
+    operator: str = ""
+    left: Expr | None = None
+    right: Expr | None = None
 
 
 @dataclass
 class CallExpr(Expr):
-    callee: str
-    arguments: list[Expr]
+    location: SourceLocation | None = None
+    callee: str = ""
+    arguments: list[Expr] = field(default_factory=list)
 
 
 @dataclass
 class ArrayExpr(Expr):
-    elements: list[Expr]
+    location: SourceLocation | None = None
+    elements: list[Expr] = field(default_factory=list)
 
 
 @dataclass
 class IndexExpr(Expr):
-    collection: Expr
-    index: Expr
+    location: SourceLocation | None = None
+    collection: Expr | None = None
+    index: Expr | None = None
 
 
 class Statement:
-    pass
+    location: SourceLocation | None
 
 
 @dataclass
 class LetStatement(Statement):
-    name: str
-    value: Expr
+    location: SourceLocation | None = None
+    name: str = ""
+    value: Expr | None = None
     is_mut: bool = False
 
 
 @dataclass
 class AssignStatement(Statement):
-    name: str
-    value: Expr
+    location: SourceLocation | None = None
+    name: str = ""
+    value: Expr | None = None
 
 
 @dataclass
 class ExpressionStatement(Statement):
-    expression: Expr
+    location: SourceLocation | None = None
+    expression: Expr | None = None
 
 
 @dataclass
 class IfStatement(Statement):
-    condition: Expr
-    then_branch: list[Statement]
-    else_branch: list[Statement] | None
+    location: SourceLocation | None = None
+    condition: Expr | None = None
+    then_branch: list[Statement] = field(default_factory=list)
+    else_branch: list[Statement] | None = None
 
 
 @dataclass
 class WhileStatement(Statement):
-    condition: Expr
-    body: list[Statement]
+    location: SourceLocation | None = None
+    condition: Expr | None = None
+    body: list[Statement] = field(default_factory=list)
 
 
 @dataclass
@@ -84,6 +98,7 @@ class Function:
     name: str
     parameters: list[str]
     body: list[Statement]
+    location: SourceLocation | None = None
 
 
 @dataclass

@@ -1,0 +1,6 @@
+// ERROR: 'total' was never declared.
+// The analyzer reports the name and the exact location of the use.
+
+func main() {
+    print(total)
+}

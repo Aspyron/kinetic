@@ -18,6 +18,8 @@ python -B -m unittest discover -s tests -p test_layout.py -v
 
 ## Current coverage
 
+### Static checks ([layout](test_layout.py))
+
 - Expected repository sections exist.
 - Compiler modules live directly in one flat package.
 - Sample programs live in the examples directory, not at the repository root.
@@ -32,6 +34,25 @@ python -B -m unittest discover -s tests -p test_layout.py -v
 - The root and module launchers delegate to the same compiler CLI.
 - Claude Code guidance imports the shared agent rules, and the roadmap exists.
 - Local Markdown links resolve to existing repository paths.
+
+### Frontend behavioral checks ([frontend](test_frontend.py))
+
+Run everywhere with no external dependencies: lexer tokenization and locations,
+removed-keyword migration hints, declaration parsing and precedence, old-syntax
+rejection, analyzer errors (missing `main`, immutable reassignment, type
+mismatches, constant out-of-bounds indexes), warnings (unused bindings,
+shadowing), and warning-summary singular/plural rendering.
+
+### Backend behavioral checks ([backend](test_backend.py))
+
+Require llvmlite; skipped cleanly when it is not installed. Verify all three
+examples compile to valid IR, the Hello World program emits a `printf` call,
+and `compile_with_diagnostics()` returns warnings alongside IR.
+
+### Native example checks ([native](test_native.py))
+
+Require Clang **and** `KINETIC_NATIVE_TESTS=1`; skipped otherwise. Build each
+example to a real binary and assert its expected output.
 
 These checks do not require llvmlite or Clang. They do not execute compiler code,
 check dynamic import behavior, generate or verify LLVM IR, build a distribution,

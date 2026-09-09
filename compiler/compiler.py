@@ -1,17 +1,24 @@
-from llvmlite import binding
-
 from .analyzer import TypeAnalyzer
-from .backend import LLVMBackend
+from .diagnostics import CompilationResult, Diagnostics
 from .lexer import Lexer
 from .parser import Parser
 
 
-def compile_source(source: str) -> str:
-    tokens = Lexer(source).tokenize()
+def compile_with_diagnostics(source: str) -> CompilationResult:
+    diagnostics = Diagnostics()
+    tokens = Lexer(source, diagnostics).tokenize()
     program = Parser(tokens).parse()
-    function_types = TypeAnalyzer(program).analyze()
+    function_types = TypeAnalyzer(program, diagnostics).analyze()
+
+    from .backend import LLVMBackend
+    from llvmlite import binding
+
     llvm_ir = LLVMBackend(program, function_types).generate()
 
     module = binding.parse_assembly(llvm_ir)
     module.verify()
-    return llvm_ir
+    return CompilationResult(llvm_ir, diagnostics)
+
+
+def compile_source(source: str) -> str:
+    return compile_with_diagnostics(source).llvm_ir

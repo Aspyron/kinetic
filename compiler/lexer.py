@@ -1,5 +1,6 @@
 import re
 
+from .diagnostics import Diagnostics
 from .errors import LexerError
 from .tokens import Token, TokenKind
 
@@ -35,9 +36,13 @@ class Lexer:
         "if": TokenKind.IF,
         "else": TokenKind.ELSE,
     }
+    _removed_keywords = {
+        "fn": "the 'fn' keyword was removed in 1.0.0; declare functions with 'func'",
+    }
 
-    def __init__(self, source: str):
+    def __init__(self, source: str, diagnostics: Diagnostics | None = None):
         self.source = source
+        self.diagnostics = diagnostics
 
     def tokenize(self) -> list[Token]:
         tokens: list[Token] = []
@@ -49,8 +54,9 @@ class Lexer:
             match = self._token_re.match(self.source, position)
             if match is None:
                 raise LexerError(
-                    f"Unexpected character {self.source[position]!r} "
-                    f"at {line}:{column}"
+                    f"unexpected character {self.source[position]!r}",
+                    line,
+                    column,
                 )
 
             text = match.group(0)
@@ -62,7 +68,7 @@ class Lexer:
             if kind_name in ("WHITESPACE", "COMMENT"):
                 continue
 
-            kind = self._token_kind(kind_name, text)
+            kind = self._token_kind(kind_name, text, token_line, token_column)
             value = self._token_value(kind, text, token_line, token_column)
             tokens.append(Token(kind, value, token_line, token_column))
 
@@ -76,10 +82,15 @@ class Lexer:
             return line + newline_count, len(text) - text.rfind("\n")
         return line, column + len(text)
 
-    def _token_kind(self, kind_name: str | None, text: str) -> TokenKind:
+    def _token_kind(
+        self, kind_name: str | None, text: str, line: int, column: int
+    ) -> TokenKind:
         if kind_name is None:
             raise AssertionError("Lexer regex produced an unnamed token")
         if kind_name == "IDENT":
+            if text in self._removed_keywords:
+                hint = self._removed_keywords[text]
+                raise LexerError(f"{hint}", line, column)
             return self._keywords.get(text, TokenKind.IDENT)
         return TokenKind[kind_name]
 
@@ -92,4 +103,4 @@ class Lexer:
         try:
             return bytes(text[1:-1], "utf-8").decode("unicode_escape")
         except UnicodeDecodeError as error:
-            raise LexerError(f"Invalid string escape at {line}:{column}") from error
+            raise LexerError("invalid string escape", line, column) from error

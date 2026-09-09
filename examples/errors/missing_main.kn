@@ -1,0 +1,6 @@
+// ERROR: every Kinetic program needs a 'main' entry point.
+// This file only defines a helper, so compilation stops with an error.
+
+func double(value) {
+    value * 2
+}

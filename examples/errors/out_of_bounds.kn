@@ -1,0 +1,8 @@
+// ERROR: the compiler knows 'scores' has 3 elements.
+// Index 3 is past the last valid index (2), so this is rejected at
+// compile time instead of failing at runtime.
+
+func main() {
+    let scores = [90, 85, 77]
+    print(scores[3])
+}

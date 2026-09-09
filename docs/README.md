@@ -2,7 +2,7 @@
 
 | Guide | Audience |
 | --- | --- |
-| [Syntax guide](syntax_guide.md) | Language users learning the 1.0.0 feature set. |
+| [Syntax guide](syntax_guide.md) | Language users learning the 1.1.0 feature set. |
 | [Architecture](architecture.md) | Contributors following the compilation pipeline. |
 | [Repository layout](repository_layout.md) | Contributors deciding where code and tooling belong. |
 | [Installation](../INSTALL.md) | Users setting up the Python dependency and native toolchain. |

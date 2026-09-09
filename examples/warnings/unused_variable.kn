@@ -1,0 +1,7 @@
+// WARNING: 'unused' is declared but never read.
+// The program still compiles and runs — the compiler just warns you.
+
+func main() {
+    let unused = 42
+    print("This runs fine")
+}

@@ -3,17 +3,23 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .compiler import compile_source
+from .compiler import compile_with_diagnostics
 from .errors import KineticError
 
 
 def build_command(source_path: Path) -> Path:
     source_text = source_path.read_text(encoding="utf-8")
 
-    llvm_ir = compile_source(source_text)
+    result = compile_with_diagnostics(source_text)
+
+    for warning in result.diagnostics.render_warnings():
+        print(warning, file=sys.stderr)
+    summary = result.diagnostics.summary()
+    if summary:
+        print(summary, file=sys.stderr)
 
     ll_file = source_path.with_suffix(".ll")
-    ll_file.write_text(llvm_ir, encoding="utf-8")
+    ll_file.write_text(result.llvm_ir, encoding="utf-8")
 
     app_name = source_path.with_suffix(".exe" if sys.platform == "win32" else "")
 
@@ -22,10 +28,10 @@ def build_command(source_path: Path) -> Path:
     try:
         subprocess.run(["clang", str(ll_file), "-o", str(app_name)], check=True)
     except FileNotFoundError:
-        print("Whoops! We couldn't find 'clang'. Make sure it's installed and in your PATH.")
+        print("kinetic: error: could not find 'clang' on PATH", file=sys.stderr)
         sys.exit(1)
     except subprocess.CalledProcessError:
-        print("Clang hit an error while building the binary.")
+        print("kinetic: error: clang failed while building the binary", file=sys.stderr)
         sys.exit(1)
 
     print("Build successful!")
@@ -54,7 +60,15 @@ def main() -> int:
             print(f"Running {app_name.name}...\n{'-'*30}")
             subprocess.run([str(app_name.resolve())])
 
-    except (OSError, KineticError, RuntimeError) as error:
+    except KineticError as error:
+        rendered = str(error)
+        if getattr(error, "line", None) is not None:
+            rendered = f"kinetic: error: {error.line}:{error.column}: {error.message}"
+        else:
+            rendered = f"kinetic: error: {error.message}"
+        print(rendered, file=sys.stderr)
+        return 1
+    except (OSError, RuntimeError) as error:
         print(f"kinetic: error: {error}", file=sys.stderr)
         return 1
 
