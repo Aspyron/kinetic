@@ -15,7 +15,7 @@ class BackendTests(unittest.TestCase):
         from pathlib import Path
 
         examples = sorted(Path("examples").glob("*.kn"))
-        self.assertEqual(len(examples), 3)
+        self.assertEqual(len(examples), 5)
         for example in examples:
             with self.subTest(example=example.name):
                 llvm_ir = compile_source(example.read_text(encoding="utf-8"))
