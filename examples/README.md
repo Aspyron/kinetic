@@ -22,8 +22,8 @@ The compiler emits structured diagnostics at compile time:
 
 - **[errors/](errors/README.md)** — programs that fail to compile, each
   demonstrating one `kinetic: error: line:column` diagnostic (immutable
-  reassignment, out-of-bounds indexes, missing `main`, removed syntax,
-  undefined variables, type mismatches).
+  reassignment, out-of-bounds indexes, missing or invalid `main`, duplicate
+  parameters, removed syntax, undefined variables, type mismatches).
 - **[warnings/](warnings/README.md)** — programs that compile and run but emit
   `kinetic: warn` diagnostics (unused bindings, shadowing).
 

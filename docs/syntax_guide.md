@@ -48,7 +48,7 @@ func calculate_speed(distance, time) {
 }
 ```
 
-The `main` function is the entry point of your program. When you run your executable, this is where the action starts.
+The `main` function is the entry point of your program. In the 1.1.0 prototype it has a fixed no-argument entry shape; declaring parameters on `main` is a compile-time error. When you run your executable, this is where the action starts.
 
 ```text
 func main() {
@@ -103,6 +103,11 @@ let high_scores = [100, 95, 80]
 let top_score = high_scores[0] 
 print(top_score)
 ```
+
+The analyzer preserves a known array length through direct binding copies and
+reassignment when the source length is known. Across conditionals and loops it
+keeps that fact only when every possible path agrees, so a stale length is not
+used for a later constant bounds diagnostic.
 
 Behind the scenes, the LLVM backend uses pointer arithmetic to access array elements. This is a prototype implementation, not a guarantee of memory safety or zero runtime cost.
 
