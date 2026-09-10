@@ -270,12 +270,11 @@ class TypeAnalyzer:
                     value_type,
                     f"assignment to {statement.name!r}",
                 )
-                if value_type is KType.INT_ARRAY:
-                    known_length = self._known_array_length(statement.value)
-                    if known_length is not None:
-                        self._array_lengths[statement.name] = known_length
-                    else:
-                        self._array_lengths.pop(statement.name, None)
+                known_length = self._known_array_length(statement.value)
+                if known_length is not None:
+                    self._array_lengths[statement.name] = known_length
+                else:
+                    self._array_lengths.pop(statement.name, None)
                 last_type = KType.VOID
 
             elif isinstance(statement, WhileStatement):

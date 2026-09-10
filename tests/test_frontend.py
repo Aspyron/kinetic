@@ -201,6 +201,21 @@ class AnalyzerTests(unittest.TestCase):
         )
         self.assertIn("main", types)
 
+    def test_forward_array_reassignment_clears_stale_length(self):
+        types, _ = analyze(
+            "func main() {\n"
+            "  mut xs = [1]\n"
+            "  let replacement = [1, 2, 3]\n"
+            "  xs = identity(replacement)\n"
+            "  print(xs[2])\n"
+            "}\n"
+            "func identity(value) {\n"
+            "  value\n"
+            "}"
+        )
+        self.assertEqual(types["identity"].parameters[0].name, "INT_ARRAY")
+        self.assertEqual(types["identity"].result.name, "INT_ARRAY")
+
     def test_conditional_array_reassignment_drops_uncertain_length(self):
         types, _ = analyze(
             "func main() {\n"
