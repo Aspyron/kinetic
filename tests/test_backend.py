@@ -32,6 +32,20 @@ class BackendTests(unittest.TestCase):
         self.assertIn("printf", llvm_ir)
         self.assertIn("Hello World!", llvm_ir)
 
+    def test_inferred_forward_result_reaches_codegen(self):
+        from compiler.compiler import compile_source
+
+        llvm_ir = compile_source(
+            "func identity(value) {\n"
+            "  value\n"
+            "}\n"
+            "func main() {\n"
+            "  print(identity(1))\n"
+            "}"
+        )
+        self.assertIn('define i64 @"identity"', llvm_ir)
+        self.assertIn('call i64 @"identity"', llvm_ir)
+
     def test_compile_with_diagnostics_collects_warnings(self):
         from compiler.compiler import compile_with_diagnostics
 

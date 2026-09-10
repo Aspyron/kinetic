@@ -1,0 +1,4 @@
+// The process entry point has a fixed no-argument shape in Kinetic 1.1.0.
+func main(value) {
+    print(value)
+}

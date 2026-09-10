@@ -30,13 +30,36 @@ class TypeAnalyzer:
         function_names = {function.name for function in program.functions}
         if len(function_names) != len(program.functions):
             raise CompileError("duplicate function definition")
-        if program.functions and "main" not in function_names:
-            location = program.functions[0].location
+        if "main" not in function_names:
+            location = program.functions[0].location if program.functions else None
             raise CompileError(
                 "program has no 'main' entry point",
                 location.line if location else None,
                 location.column if location else None,
             )
+
+        for function in program.functions:
+            seen_parameters: set[str] = set()
+            for parameter in function.parameters:
+                if parameter in seen_parameters:
+                    location = function.location
+                    raise CompileError(
+                        f"duplicate parameter {parameter!r} in function "
+                        f"{function.name!r}",
+                        location.line if location else None,
+                        location.column if location else None,
+                    )
+                seen_parameters.add(parameter)
+
+        main = next(function for function in program.functions if function.name == "main")
+        if main.parameters:
+            location = main.location
+            raise CompileError(
+                "'main' entry point cannot have parameters",
+                location.line if location else None,
+                location.column if location else None,
+            )
+
         self.types = {
             function.name: FunctionType(
                 [KType.UNKNOWN] * len(function.parameters), KType.UNKNOWN
@@ -44,6 +67,8 @@ class TypeAnalyzer:
             for function in program.functions
         }
         self._array_lengths: dict[str, int] = {}
+        self._binding_ids: dict[str, int | None] = {}
+        self._final_validation = False
 
     def analyze(self) -> dict[str, FunctionType]:
         for _ in range(max(2, len(self.program.functions) + 1)):
@@ -66,6 +91,14 @@ class TypeAnalyzer:
                 )
             if signature.result is KType.UNKNOWN:
                 signature.result = KType.VOID
+
+        # Re-check once with settled signatures. During inference, UNKNOWN is a
+        # temporary fact and must not cause calls such as print(identity(1)) to
+        # fail before the callee's return type has propagated.
+        self._final_validation = True
+        for function in self.program.functions:
+            self._analyze_function(function)
+
         return self.types
 
     @staticmethod
@@ -85,23 +118,45 @@ class TypeAnalyzer:
             raise CompileError(f"type mismatch in {context}: {old.name} vs {new.name}")
         return old
 
+    def _restore_array_lengths(self, lengths: dict[str, int]) -> None:
+        self._array_lengths.clear()
+        self._array_lengths.update(lengths)
+
+    def _merge_array_lengths(self, paths: list[dict[str, int]]) -> None:
+        if not paths:
+            self._array_lengths.clear()
+            return
+
+        common_names = set(paths[0])
+        for path in paths[1:]:
+            common_names.intersection_update(path)
+
+        merged = {
+            name: paths[0][name]
+            for name in common_names
+            if all(path[name] == paths[0][name] for path in paths[1:])
+        }
+        self._restore_array_lengths(merged)
+
     def _analyze_function(self, function: Function) -> bool:
         signature = self.types[function.name]
 
         environment = dict(zip(function.parameters, signature.parameters))
+        self._binding_ids = {parameter: None for parameter in function.parameters}
+        self._array_lengths.clear()
 
         mutables: set[str] = set()
-        used: set[str] = set()
+        used: set[int] = set()
 
         last_type = self._analyze_block(
             function.body, environment, mutables, used
         )
 
-        for name, statement_location in self._declared_bindings(function.body):
-            if name not in used and name not in function.parameters:
+        for statement in self._declared_bindings(function.body):
+            if id(statement) not in used:
                 self.diagnostics.warn(
-                    f"variable {name!r} is never used",
-                    statement_location,
+                    f"variable {statement.name!r} is never used",
+                    statement.location,
                 )
 
         changed = False
@@ -129,7 +184,7 @@ class TypeAnalyzer:
     def _declared_bindings(self, block: list[Statement]):
         for statement in block:
             if isinstance(statement, LetStatement):
-                yield statement.name, statement.location
+                yield statement
             if isinstance(statement, IfStatement):
                 yield from self._declared_bindings(statement.then_branch)
                 if statement.else_branch is not None:
@@ -142,12 +197,14 @@ class TypeAnalyzer:
         block: list[Statement],
         environment: dict[str, KType],
         mutables: set[str],
-        used: set[str],
+        used: set[int],
     ) -> KType:
         last_type = KType.VOID
-        original_keys = set(environment.keys())
-        original_mutables = set(mutables)
-        original_lengths = set(self._array_lengths.keys())
+        declared_here: set[str] = set()
+        prior_types: dict[str, tuple[bool, KType | None]] = {}
+        prior_mutability: dict[str, bool] = {}
+        prior_lengths: dict[str, tuple[bool, int | None]] = {}
+        prior_binding_ids: dict[str, tuple[bool, int | None]] = {}
 
         for statement in block:
             if isinstance(statement, LetStatement):
@@ -157,6 +214,22 @@ class TypeAnalyzer:
                         "existing binding",
                         statement.location,
                     )
+                if statement.name not in declared_here:
+                    declared_here.add(statement.name)
+                    prior_types[statement.name] = (
+                        statement.name in environment,
+                        environment.get(statement.name),
+                    )
+                    prior_mutability[statement.name] = statement.name in mutables
+                    prior_lengths[statement.name] = (
+                        statement.name in self._array_lengths,
+                        self._array_lengths.get(statement.name),
+                    )
+                    prior_binding_ids[statement.name] = (
+                        statement.name in self._binding_ids,
+                        self._binding_ids.get(statement.name),
+                    )
+
                 value_type = self._expr_type(statement.value, environment, used)
                 if value_type is KType.VOID:
                     line, column = self._location_of(statement)
@@ -164,12 +237,16 @@ class TypeAnalyzer:
                         "cannot bind a void expression", line, column
                     )
                 environment[statement.name] = value_type
+                self._binding_ids[statement.name] = id(statement)
                 if statement.is_mut:
                     mutables.add(statement.name)
-                if isinstance(statement.value, ArrayExpr):
-                    self._array_lengths[statement.name] = len(
-                        statement.value.elements
-                    )
+                else:
+                    mutables.discard(statement.name)
+                known_length = self._known_array_length(statement.value)
+                if known_length is not None:
+                    self._array_lengths[statement.name] = known_length
+                else:
+                    self._array_lengths.pop(statement.name, None)
                 last_type = KType.VOID
 
             elif isinstance(statement, AssignStatement):
@@ -184,13 +261,21 @@ class TypeAnalyzer:
                         line,
                         column,
                     )
-                used.add(statement.name)
+                binding_id = self._binding_ids.get(statement.name)
+                if binding_id is not None:
+                    used.add(binding_id)
                 value_type = self._expr_type(statement.value, environment, used)
                 self._unify(
                     environment[statement.name],
                     value_type,
                     f"assignment to {statement.name!r}",
                 )
+                if value_type is KType.INT_ARRAY:
+                    known_length = self._known_array_length(statement.value)
+                    if known_length is not None:
+                        self._array_lengths[statement.name] = known_length
+                    else:
+                        self._array_lengths.pop(statement.name, None)
                 last_type = KType.VOID
 
             elif isinstance(statement, WhileStatement):
@@ -201,7 +286,10 @@ class TypeAnalyzer:
                     raise CompileError(
                         "while condition must be a boolean", line, column
                     )
+                before_lengths = dict(self._array_lengths)
                 self._analyze_block(statement.body, environment, mutables, used)
+                after_lengths = dict(self._array_lengths)
+                self._merge_array_lengths([before_lengths, after_lengths])
                 last_type = KType.VOID
 
             elif isinstance(statement, IfStatement):
@@ -213,34 +301,57 @@ class TypeAnalyzer:
                         "if condition must be a boolean", line, column
                     )
 
+                before_lengths = dict(self._array_lengths)
                 then_type = self._analyze_block(
                     statement.then_branch, environment, mutables, used
                 )
+                then_lengths = dict(self._array_lengths)
+                self._restore_array_lengths(before_lengths)
+
                 if statement.else_branch is not None:
                     else_type = self._analyze_block(
                         statement.else_branch, environment, mutables, used
                     )
+                    else_lengths = dict(self._array_lengths)
+                    self._merge_array_lengths([then_lengths, else_lengths])
                     last_type = self._unify(then_type, else_type, "if/else branches")
                 else:
+                    self._merge_array_lengths([before_lengths, then_lengths])
                     last_type = KType.VOID
 
             elif isinstance(statement, ExpressionStatement):
                 last_type = self._expr_type(statement.expression, environment, used)
 
-        for key in list(environment.keys()):
-            if key not in original_keys:
-                del environment[key]
-        for key in list(mutables):
-            if key not in original_mutables:
-                mutables.remove(key)
-        for key in list(self._array_lengths.keys()):
-            if key not in original_lengths:
-                del self._array_lengths[key]
+        for name in declared_here:
+            had_type, prior_type = prior_types[name]
+            if had_type:
+                assert prior_type is not None
+                environment[name] = prior_type
+            else:
+                environment.pop(name, None)
+
+            if prior_mutability[name]:
+                mutables.add(name)
+            else:
+                mutables.discard(name)
+
+            had_length, prior_length = prior_lengths[name]
+            if had_length:
+                assert prior_length is not None
+                self._array_lengths[name] = prior_length
+            else:
+                self._array_lengths.pop(name, None)
+
+            had_binding, prior_binding = prior_binding_ids[name]
+            if had_binding:
+                self._binding_ids[name] = prior_binding
+            else:
+                self._binding_ids.pop(name, None)
 
         return last_type
 
     def _expr_type(
-        self, expression: Expr, environment: dict[str, KType], used: set[str]
+        self, expression: Expr, environment: dict[str, KType], used: set[int]
     ) -> KType:
         if isinstance(expression, NumberExpr):
             return KType.INT
@@ -252,7 +363,9 @@ class TypeAnalyzer:
                 raise CompileError(
                     f"undefined variable {expression.name!r}", line, column
                 )
-            used.add(expression.name)
+            binding_id = self._binding_ids.get(expression.name)
+            if binding_id is not None:
+                used.add(binding_id)
             return environment[expression.name]
         if isinstance(expression, ArrayExpr):
             for element in expression.elements:
@@ -278,6 +391,13 @@ class TypeAnalyzer:
             return self._call_type(expression, environment, used)
         raise AssertionError(f"Unhandled expression: {expression!r}")
 
+    def _known_array_length(self, expression: Expr) -> int | None:
+        if isinstance(expression, ArrayExpr):
+            return len(expression.elements)
+        if isinstance(expression, NameExpr):
+            return self._array_lengths.get(expression.name)
+        return None
+
     def _check_constant_bounds(
         self, expression: IndexExpr, environment: dict[str, KType]
     ) -> None:
@@ -295,7 +415,7 @@ class TypeAnalyzer:
             )
 
     def _binary_type(
-        self, expression: BinaryExpr, environment: dict[str, KType], used: set[str]
+        self, expression: BinaryExpr, environment: dict[str, KType], used: set[int]
     ) -> KType:
         left = self._expr_type(expression.left, environment, used)
         right = self._expr_type(expression.right, environment, used)
@@ -316,17 +436,17 @@ class TypeAnalyzer:
         return KType.INT
 
     def _call_type(
-        self, expression: CallExpr, environment: dict[str, KType], used: set[str]
+        self, expression: CallExpr, environment: dict[str, KType], used: set[int]
     ) -> KType:
         argument_types = [
             self._expr_type(argument, environment, used)
             for argument in expression.arguments
         ]
         if expression.callee == "print":
-            if len(argument_types) != 1 or argument_types[0] not in (
-                KType.INT,
-                KType.STRING,
-            ):
+            printable_types = (KType.INT, KType.STRING)
+            if not self._final_validation:
+                printable_types += (KType.UNKNOWN,)
+            if len(argument_types) != 1 or argument_types[0] not in printable_types:
                 line, column = self._location_of(expression)
                 raise CompileError(
                     "print expects one integer or string argument", line, column

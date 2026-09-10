@@ -49,7 +49,8 @@ class RepositoryLayoutTests(unittest.TestCase):
         for name in (
             "immutable_reassign.kn", "out_of_bounds.kn", "missing_main.kn",
             "old_fn_keyword.kn", "old_let_mut.kn", "undefined_variable.kn",
-            "type_mismatch.kn",
+            "type_mismatch.kn", "main_parameters.kn",
+            "duplicate_parameters.kn",
         ):
             with self.subTest(error_example=name):
                 self.assertTrue((ROOT / "examples" / "errors" / name).is_file())

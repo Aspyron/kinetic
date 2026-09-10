@@ -24,6 +24,8 @@ kinetic: error: <line>:<column>: <message>
 | [old_let_mut.kn](old_let_mut.kn) | The removed `let mut` form; mutable bindings use standalone `mut`. |
 | [undefined_variable.kn](undefined_variable.kn) | Using a name that was never declared. |
 | [type_mismatch.kn](type_mismatch.kn) | Mixing an integer and a string in arithmetic. |
+| [main_parameters.kn](main_parameters.kn) | Declaring parameters on the fixed no-argument `main` entry point. |
+| [duplicate_parameters.kn](duplicate_parameters.kn) | Declaring the same parameter name twice in one function. |
 
 See [warnings](../warnings/README.md) for diagnostics that do **not** stop
 compilation.

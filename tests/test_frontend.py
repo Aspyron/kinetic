@@ -90,6 +90,28 @@ class AnalyzerTests(unittest.TestCase):
             analyze("func helper() {\n  1\n}")
         self.assertIn("no 'main' entry point", str(raised.exception))
 
+    def test_empty_program_reports_missing_main(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze("")
+        self.assertIn("no 'main' entry point", str(raised.exception))
+
+    def test_main_parameters_are_rejected_before_codegen(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze("func main(value) {\n  print(value)\n}")
+        self.assertIn("'main' entry point cannot have parameters", str(raised.exception))
+
+    def test_duplicate_function_parameters_are_rejected(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze(
+                "func choose(value, value) {\n"
+                "  value\n"
+                "}\n"
+                "func main() {\n"
+                "  print(choose(1, 2))\n"
+                "}"
+            )
+        self.assertIn("duplicate parameter 'value'", str(raised.exception))
+
     def test_immutable_reassignment_is_located(self):
         with self.assertRaises(CompileError) as raised:
             analyze("func main() {\n  let x = 1\n  x = 2\n}")
@@ -120,6 +142,177 @@ class AnalyzerTests(unittest.TestCase):
         types, _ = analyze("func main() {\n  let xs = [1, 2]\n  print(xs[1])\n}")
         self.assertIn("main", types)
 
+    def test_shadowed_array_length_restores_outer_binding(self):
+        types, _ = analyze(
+            "func main() {\n"
+            "  let xs = [1, 2, 3]\n"
+            "  if 1 == 1 {\n"
+            "    let xs = [9]\n"
+            "    print(xs[0])\n"
+            "  }\n"
+            "  print(xs[2])\n"
+            "}"
+        )
+        self.assertIn("main", types)
+
+    def test_shadowed_immutable_binding_does_not_inherit_mutability(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze(
+                "func main() {\n"
+                "  mut x = 1\n"
+                "  if 1 == 1 {\n"
+                "    let x = 2\n"
+                "    x = 3\n"
+                "  }\n"
+                "}"
+            )
+        self.assertIn("cannot reassign immutable variable", str(raised.exception))
+
+    def test_array_reassignment_updates_known_length(self):
+        types, _ = analyze(
+            "func main() {\n"
+            "  mut xs = [1, 2]\n"
+            "  xs = [1, 2, 3]\n"
+            "  print(xs[2])\n"
+            "}"
+        )
+        self.assertIn("main", types)
+
+    def test_array_reassignment_shrink_updates_bounds_error(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze(
+                "func main() {\n"
+                "  mut xs = [1, 2, 3]\n"
+                "  xs = [1]\n"
+                "  print(xs[2])\n"
+                "}"
+            )
+        self.assertIn("out of bounds", str(raised.exception))
+        self.assertIn("length 1", str(raised.exception))
+
+    def test_array_reassignment_from_binding_clears_stale_length(self):
+        types, _ = analyze(
+            "func main() {\n"
+            "  mut xs = [1, 2]\n"
+            "  let replacement = [1, 2, 3]\n"
+            "  xs = replacement\n"
+            "  print(xs[2])\n"
+            "}"
+        )
+        self.assertIn("main", types)
+
+    def test_conditional_array_reassignment_drops_uncertain_length(self):
+        types, _ = analyze(
+            "func main() {\n"
+            "  mut xs = [1, 2, 3]\n"
+            "  if 1 < 2 {\n"
+            "    xs = [1]\n"
+            "  }\n"
+            "  print(xs[2])\n"
+            "}"
+        )
+        self.assertIn("main", types)
+
+    def test_matching_if_else_array_lengths_remain_known(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze(
+                "func main() {\n"
+                "  mut xs = [1, 2, 3]\n"
+                "  if 1 < 2 {\n"
+                "    xs = [1]\n"
+                "  } else {\n"
+                "    xs = [2]\n"
+                "  }\n"
+                "  print(xs[1])\n"
+                "}"
+            )
+        self.assertIn("out of bounds", str(raised.exception))
+        self.assertIn("length 1", str(raised.exception))
+
+    def test_inner_shadow_use_does_not_hide_unused_outer_binding(self):
+        _, diagnostics = analyze(
+            "func main() {\n"
+            "  let value = 1\n"
+            "  if 1 == 1 {\n"
+            "    let value = 2\n"
+            "    print(value)\n"
+            "  }\n"
+            "}"
+        )
+        unused = [
+            warning
+            for warning in diagnostics.warnings
+            if "never used" in warning.message
+        ]
+        self.assertEqual(len(unused), 1)
+        self.assertEqual(unused[0].location.line, 2)
+
+    def test_outer_use_does_not_hide_unused_inner_shadow(self):
+        _, diagnostics = analyze(
+            "func main() {\n"
+            "  let value = 1\n"
+            "  if 1 == 1 {\n"
+            "    let value = 2\n"
+            "  }\n"
+            "  print(value)\n"
+            "}"
+        )
+        unused = [
+            warning
+            for warning in diagnostics.warnings
+            if "never used" in warning.message
+        ]
+        self.assertEqual(len(unused), 1)
+        self.assertEqual(unused[0].location.line, 4)
+
+    def test_array_binding_copy_preserves_known_length(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze(
+                "func main() {\n"
+                "  let source = [1, 2, 3]\n"
+                "  let copy = source\n"
+                "  print(copy[3])\n"
+                "}"
+            )
+        self.assertIn("out of bounds", str(raised.exception))
+        self.assertIn("length 3", str(raised.exception))
+
+    def test_array_reassignment_from_binding_preserves_known_length(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze(
+                "func main() {\n"
+                "  mut target = [1]\n"
+                "  let source = [1, 2, 3]\n"
+                "  target = source\n"
+                "  print(target[3])\n"
+                "}"
+            )
+        self.assertIn("out of bounds", str(raised.exception))
+        self.assertIn("length 3", str(raised.exception))
+
+    def test_print_waits_for_inferred_function_result(self):
+        types, _ = analyze(
+            "func identity(value) {\n"
+            "  value\n"
+            "}\n"
+            "func main() {\n"
+            "  print(identity(1))\n"
+            "}"
+        )
+        self.assertEqual(types["identity"].parameters[0].name, "INT")
+        self.assertEqual(types["identity"].result.name, "INT")
+
+    def test_print_rejects_function_that_settles_to_void(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze(
+                "func noop() {\n"
+                "}\n"
+                "func main() {\n"
+                "  print(noop())\n"
+                "}"
+            )
+        self.assertIn("print expects one integer or string argument", str(raised.exception))
+
     def test_warning_summary_pluralization(self):
         _, diagnostics = analyze(
             "func main() {\n  let a = 1\n  let b = 2\n}"
@@ -149,6 +342,8 @@ class DiagnosticExampleTests(unittest.TestCase):
         "old_let_mut.kn": "mut name = value",
         "undefined_variable.kn": "undefined variable",
         "type_mismatch.kn": "",
+        "main_parameters.kn": "cannot have parameters",
+        "duplicate_parameters.kn": "duplicate parameter",
     }
 
     def test_error_examples_fail_with_expected_diagnostic(self):

@@ -39,15 +39,18 @@ python -B -m unittest discover -s tests -p test_layout.py -v
 
 Run everywhere with no external dependencies: lexer tokenization and locations,
 removed-keyword migration hints, declaration parsing and precedence, old-syntax
-rejection, analyzer errors (missing `main`, immutable reassignment, type
-mismatches, constant out-of-bounds indexes), warnings (unused bindings,
-shadowing), and warning-summary singular/plural rendering.
+rejection, analyzer errors (missing or invalid `main`, duplicate parameters,
+immutable reassignment, type mismatches, constant out-of-bounds indexes),
+scope-aware warnings for unused/shadowed bindings, array-length propagation
+across copies/reassignment/control flow, deferred function-result inference, and
+warning-summary singular/plural rendering.
 
 ### Backend behavioral checks ([backend](test_backend.py))
 
 Require llvmlite; skipped cleanly when it is not installed. Verify all three
 examples compile to valid IR, the Hello World program emits a `printf` call,
-and `compile_with_diagnostics()` returns warnings alongside IR.
+inferred function results survive through code generation, and
+`compile_with_diagnostics()` returns warnings alongside IR.
 
 ### Native example checks ([native](test_native.py))
 

@@ -36,7 +36,10 @@ and printed with a pluralized summary such as `kinetic: 2 warnings emitted`.
 
 The analyzer emits warnings for unused bindings and shadowing, and reports
 errors for immutable reassignment, undefined names, type mismatches, constant
-out-of-bounds array indexes, and a missing `main` entry point. The lexer
+out-of-bounds array indexes, an invalid `main` entry point, and duplicate
+function parameters. Lexical binding identity is preserved while analyzing
+shadowing so usage diagnostics and scoped array facts refer to the declaration
+that is actually visible. The lexer
 rejects removed syntax (such as `fn`) with an explicit migration hint, and the
 parser rejects `let mut` with guidance toward standalone `mut`.
 
