@@ -1,0 +1,24 @@
+// A fixed integer array represents the bytes for ASCII text "A12 B3".
+// len reads the array's actual element count, including after reassignment.
+// Each indexed read has a runtime bounds check.
+// This demonstrates byte processing, not file input or Unicode decoding.
+
+func main() {
+    let bytes = [65, 49, 50, 32, 66, 51]
+    let length = len(bytes)
+    mut offset = 0
+    mut digits = 0
+
+    while offset < length {
+        let byte = bytes[offset]
+        if byte > 47 {
+            if byte < 58 {
+                digits = digits + 1
+            }
+        }
+        offset = offset + 1
+    }
+
+    print("ASCII digits:")
+    print(digits)
+}

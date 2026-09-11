@@ -1,0 +1,25 @@
+// Arrays carry their element count through function calls, copies, and
+// reassignment. Copying an array binding does not copy the underlying elements.
+// forward returns a caller-owned array whose storage is still alive in main.
+
+func count(values) {
+    len(values)
+}
+
+func forward(values) {
+    values
+}
+
+func main() {
+    let original = [10, 20, 30]
+    mut current = original
+
+    print("Array lengths:")
+    print(count(current))
+    current = [40, 50]
+    print(len(current))
+    print(len(original))
+    let empty = []
+    print(len(empty))
+    print(len(forward(current)))
+}

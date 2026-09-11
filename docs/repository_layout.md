@@ -11,8 +11,8 @@ examples, and repository maintenance.
 | [Documentation](README.md) | Language syntax, compiler architecture, and repository guides. |
 | [Examples](../examples/README.md) | Complete Kinetic programs used in tutorials and manual verification. |
 | [Tools](../tools/README.md) | Development and repository maintenance utilities. |
-| [Tests](../tests/README.md) | Static repository checks and a home for future compiler regression tests. |
-| [GitHub workflows](../.github/workflows/ci.yml) | Runs the shared static checker for pushes, pull requests, and manual CI runs. |
+| [Tests](../tests/README.md) | Layout, frontend, backend, and opt-in native test suites. |
+| [GitHub workflows](../.github/workflows/ci.yml) | General-runner matrix, a frontend/backend job with runtime dependencies installed, and a native job that builds and runs the example suite with Clang. |
 
 ## Root files
 
@@ -25,9 +25,22 @@ examples, and repository maintenance.
 | [Installation](../INSTALL.md) | Toolchain setup and command usage. |
 | [Contributing](../CONTRIBUTING.md) | Development practices and verification workflows. |
 | [Agent guidance](../AGENTS.md) | Shared instructions for coding agents. |
+| [Fallback agent guidance](../AGENT.md) | Alternative entry point for tools using the singular filename; points to the shared instructions. |
 | [Claude Code guidance](../CLAUDE.md) | Claude Code's repository instructions. |
 | [Roadmap](../ROADMAP.md) | Completed work, current priorities, and future milestones. |
 | [License](../LICENSE) | Project licensing. |
+
+The compiler sources remain a flat package in release 1.2.0. The
+[bootstrap host interface](bootstrap_interface.md) lives in documentation because
+it is a design contract, not an implemented runtime package. Its current-syntax
+examples belong alongside the other numbered programs, with intentional
+compile-time failures, runtime bounds failures, and warnings in their own example
+subdirectories. The length builtin and runtime guards are implemented in the
+existing analyzer/backend modules; they do not require a new package layer.
+
+[Ignore rules](../.gitignore) cover Python/package caches, generated IR, native
+objects, Windows debug/link outputs, and known extensionless example binaries.
+Source programs and their documentation remain tracked.
 
 ## Working rules
 

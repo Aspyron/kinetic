@@ -1,7 +1,7 @@
 # Compiler sources
 
 This directory is Kinetic's Python package. All compiler stages and the CLI live
-directly here, with one source file per concern.
+directly here, with one source file per concern. It implements Kinetic 1.2.0.
 
 | Stage or concern | Source |
 | --- | --- |
@@ -11,15 +11,27 @@ directly here, with one source file per concern.
 | Parsing and syntax tree | [Parser](parser.py), [AST](ast.py) |
 | Type checking and inference | [Analyzer](analyzer.py), [types](types.py) |
 | LLVM code generation | [Backend](backend.py) |
-| Diagnostics | [Errors](errors.py) |
+| Diagnostics and source locations | [Diagnostics](diagnostics.py), [errors](errors.py) |
 | Native build and run driver | [CLI](cli.py) |
 | Module entry point | [Module launcher](__main__.py) |
 
-Stage modules use package-relative imports. The public orchestration function is
-[`compile_source()`](compiler.py:11), also exported by the package initializer.
+Stage modules use package-relative imports. The orchestration entry point is
+[`compile_with_diagnostics()`](compiler.py:7), returning verified textual IR and
+warnings. [`compile_source()`](compiler.py:23) returns just the IR and is lazily
+exported by the package initializer. Backend dependencies are imported only when
+code generation is reached; frontend analysis can run without llvmlite.
 
 The root [launcher](../kinetic.py), the module entry point, and the installed
 command all use the same CLI. [pyproject.toml](../pyproject.toml) packages this
 directory directly.
 
 See the [architecture guide](../docs/architecture.md) for dependencies between stages.
+The analyzer and backend jointly implement the array-length builtin. The backend
+carries array pointers and element counts together and checks the index range
+before every element read. Mutable bindings store the whole aggregate, and
+function arguments/results use the same representation. Array lifetime safety
+and indexed writes remain separate, unimplemented work.
+
+The [bootstrap host interface](../docs/bootstrap_interface.md) is a future design,
+not an additional implementation in this package. Its
+[concept examples](../examples/README.md) use existing compiler features only.

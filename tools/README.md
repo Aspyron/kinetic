@@ -3,28 +3,55 @@
 Repository maintenance utilities live here, separate from the
 [compiler CLI](../compiler/cli.py).
 
-## Static repository check
+## Static-only verification
 
-The [checker](check.py) discovers the static [layout tests](../tests/test_layout.py)
-and returns a nonzero status if a check fails:
+From the repository root:
+
+```shell
+python -B -m unittest discover -s tests -p test_layout.py -v
+```
+
+This selects only the [layout suite](../tests/test_layout.py). It checks Python
+syntax, repository structure, import targets, and documentation links without
+importing Kinetic, generating LLVM IR, invoking Clang, or running Kinetic programs.
+It needs only Python and leaves no bytecode caches.
+
+## General test runner
+
+From the repository root:
 
 ```shell
 python -B tools/check.py
 ```
 
-It resolves the repository location from its own location, so it does not depend
-on the terminal's current directory. It needs only the Python standard library.
-The bytecode-suppression option keeps this check from leaving Python caches.
+The [runner](check.py) discovers layout, frontend, backend, and native suites.
+It returns a nonzero status on failure and does not install dependencies.
 
-The checker does not import the compiler, generate LLVM IR, run Clang, install
-dependencies, or execute Kinetic programs. See [test documentation](../tests/README.md)
-for the exact coverage and limitations.
+- Frontend tests import and exercise the lexer, parser, and analyzer.
+- Backend tests generate and verify IR when llvmlite is installed; they are
+  skipped when the dependency is unavailable.
+- Native tests require explicit opt-in plus Clang and llvmlite. They build and
+  execute programs in temporary directories.
 
-Future repository maintenance tools should live here; user-facing language
-commands should continue to live in the compiler package.
+The 1.2.0 suites include array-length inference, descriptor propagation, emitted
+bounds guards, and unsuccessful native exits for invalid indexes. The
+[runtime-failure examples](../examples/runtime_errors/README.md) are tested
+separately from successful numbered examples. They must not be run during
+static-only work.
+
+**The general runner is not static-only.** Do not invoke it when compiler
+execution or IR generation is prohibited. Although it locates tests relative to
+itself, some behavioral tests read examples relative to the working directory;
+run it from the repository root.
+
+See [tests](../tests/README.md) for individual suite commands and native opt-in.
 
 ## GitHub Actions
 
-The [workflow](../.github/workflows/ci.yml) invokes the same command on Windows
-and Linux using Python 3.10 and 3.14. No separate CI-only checker is maintained.
-Both local and hosted runs are static-only and require no runtime dependencies.
+The [workflow](../.github/workflows/ci.yml) invokes the general runner on Windows
+and Linux using Python 3.10 and 3.14 without installing llvmlite. Despite its
+static label, this matrix includes frontend behavior tests. A separate Ubuntu
+Python 3.10 job installs the runtime dependency and runs frontend/backend suites.
+A third Ubuntu job enables native testing and uses the runner-provided Clang
+toolchain to build and execute the numbered examples and runtime-failure
+programs. Test logic is shared with local runs.

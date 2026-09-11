@@ -58,7 +58,8 @@ def main() -> int:
 
         if args.command == "run":
             print(f"Running {app_name.name}...\n{'-'*30}")
-            subprocess.run([str(app_name.resolve())])
+            result = subprocess.run([str(app_name.resolve())])
+            return result.returncode if result.returncode >= 0 else 1
 
     except KineticError as error:
         rendered = str(error)

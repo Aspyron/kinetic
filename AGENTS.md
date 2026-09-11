@@ -1,6 +1,6 @@
 # Agent guidance
 
-Kinetic is a 1.1.1 prototype language compiler written in Python. It emits textual
+Kinetic is a 1.2.0 prototype language compiler written in Python. It emits textual
 LLVM IR through llvmlite and invokes Clang for native binaries. Keep changes small
 and do not imply that the prototype provides a production memory-safety model.
 
@@ -42,24 +42,36 @@ python kinetic.py run examples/01_hello.kn
 For structural changes, run the static-only checker:
 
 ```shell
-python -B tools/check.py
+python -B -m unittest discover -s tests -p test_layout.py -v
 ```
 
 It needs only Python and does not import Kinetic, generate IR, invoke Clang, or
 run Kinetic programs. See [tests](tests/README.md) for its coverage.
 
-The [GitHub Actions workflow](.github/workflows/ci.yml) runs the same static
-checker on pushes, pull requests, and manual dispatches, with Python 3.10 and
-3.14 on Windows and Linux. Keep local checks and CI aligned; a green static job
-does not demonstrate compiler behavior.
+The general [runner](tools/check.py) is not static-only: it discovers frontend,
+backend, and opt-in native suites as well as layout checks. Backend tests generate
+IR when llvmlite is installed. Use the explicit layout command for static-only work.
 
-There is no automated compiler-behavior suite or linter.
-When compiler behavior changes and native builds are permitted, manually verify:
+The [workflow](.github/workflows/ci.yml) runs the general runner in its
+Windows/Linux Python 3.10/3.14 matrix without installing llvmlite. A separate
+Ubuntu job installs the runtime dependency and runs frontend/backend tests. A
+third Ubuntu job enables native testing and builds and runs the native example
+suite with the runner-provided Clang toolchain. Keep test logic shared between
+local and hosted runs; a green layout check alone does not demonstrate compiler
+behavior.
+
+Automated behavioral suites exist; there is no configured linter. When compiler
+behavior changes and native builds are permitted, verify the numbered examples:
 
 ```shell
 python kinetic.py run examples/01_hello.kn
 python kinetic.py run examples/02_logic.kn
 python kinetic.py run examples/03_arrays.kn
+python kinetic.py run examples/04_bounds_checked.kn
+python kinetic.py run examples/05_mutability.kn
+python kinetic.py run examples/06_status_handling.kn
+python kinetic.py run examples/07_byte_processing.kn
+python kinetic.py run examples/08_array_lengths.kn
 ```
 
 **If the user asks not to compile or run programs, do not invoke these commands,
@@ -74,8 +86,9 @@ module target triple is benign on its own.
 ## Architecture
 
 The root launcher delegates to the [CLI](compiler/cli.py), which calls
-[`compile_source()`](compiler/compiler.py:11), the single pipeline
-orchestration point.
+[`compile_with_diagnostics()`](compiler/compiler.py:7), the single pipeline
+orchestration point. [`compile_source()`](compiler/compiler.py:23) wraps it for
+callers that need only the IR.
 
 The stage order is [lexer](compiler/lexer.py),
 [parser](compiler/parser.py), [analyzer](compiler/analyzer.py), and
@@ -87,7 +100,15 @@ special-cased in both the analyzer and backend, lowers to C's formatted-output
 function, and accepts exactly one integer or string. New builtins need matching
 handling in both stages.
 
-The [syntax guide](docs/syntax_guide.md) documents the 1.1.1 language. The three
+The array-length builtin accepts exactly one integer array. Arrays lower to
+pointer/count aggregates, including in function signatures and mutable storage.
+Every indexed read has a runtime range guard before element address calculation
+and loading; failure traps. Preserve both fields through copying/reassignment
+and do not equate bounds checking with lifetime safety. The CLI propagates failed
+child exit statuses. Test [runtime failures](examples/runtime_errors/README.md)
+separately from success examples when native execution is permitted.
+
+The [syntax guide](docs/syntax_guide.md) documents the 1.2.0 language. The eight
 numbered [examples](examples/README.md) cover inference, control flow, mutation,
 and arrays. Comparisons remain limited to equality, less-than, and greater-than.
 
@@ -108,3 +129,10 @@ available, and update milestone status only when the work and its verification
 are actually complete.
 
 [Claude Code guidance](CLAUDE.md) imports these shared instructions.
+[Fallback guidance](AGENT.md) points tools using the singular filename here.
+Keep this document authoritative rather than maintaining divergent rule sets.
+
+The [bootstrap host interface](docs/bootstrap_interface.md) is a design contract.
+The status/byte examples illustrate concepts using existing syntax; do not
+describe them as native-service implementations. Keep explanatory comments and
+docstrings out of Python files, and preserve historical versions in migration hints.

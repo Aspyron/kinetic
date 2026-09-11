@@ -1,82 +1,121 @@
 # Tests
 
-This directory separates automated repository checks from teaching examples and
-compiler implementation. The initial [suite](test_layout.py) is static-only and
-uses Python's standard-library test framework.
+Kinetic 1.2.0 has separate suites for repository structure, frontend behavior,
+LLVM generation, and native execution. The native suite runs in hosted CI on
+every push and stays opt-in locally. Run commands below from the repository root.
 
-## Run static checks
-
-```shell
-python -B tools/check.py
-```
-
-Or run discovery directly from the repository root:
+## Static-only checks
 
 ```shell
 python -B -m unittest discover -s tests -p test_layout.py -v
 ```
 
-## Current coverage
+The [layout suite](test_layout.py) requires only Python and does not import
+Kinetic, generate IR, invoke Clang, or execute Kinetic programs. It covers:
 
-### Static checks ([layout](test_layout.py))
+- Flat compiler package structure and the expected example files.
+- Python syntax, internal import targets, token references, and keyword mapping.
+- Public exports and CLI entry points.
+- The published Hello World program and declaration syntax in valid examples.
+- Intentional old-syntax examples kept separate from valid programs.
+- Local Markdown links, shared agent guidance, and workflow action references.
 
-- Expected repository sections exist.
-- Compiler modules live directly in one flat package.
-- Sample programs live in the examples directory, not at the repository root.
-- Python sources parse successfully, without importing them.
-- Token-kind references resolve to declared enum members, and declaration keywords
-  match the current lexer mapping.
-- The introductory Hello World program is published verbatim in the project overview.
-- Examples and the syntax guide use the current function and mutable-binding declarations.
-- The CI workflow invokes the shared static checker and pins official actions to commits.
-- Relative and absolute internal imports point to existing compiler modules or packages.
-- The package initializer exposes the public compilation API.
-- The root and module launchers delegate to the same compiler CLI.
-- Claude Code guidance imports the shared agent rules, and the roadmap exists.
-- Local Markdown links resolve to existing repository paths.
+It is not a full YAML/Actions validator or a compiler-behavior test suite. Use
+this explicit command whenever compilation or program execution is prohibited.
 
-### Frontend behavioral checks ([frontend](test_frontend.py))
+## Frontend behavior
 
-Run everywhere with no external dependencies: lexer tokenization and locations,
-removed-keyword migration hints, declaration parsing and precedence, old-syntax
-rejection, analyzer errors (missing or invalid `main`, duplicate parameters,
-immutable reassignment, type mismatches, constant out-of-bounds indexes),
-scope-aware warnings for unused/shadowed bindings, array-length propagation
-across copies/reassignment/control flow, deferred function-result inference, and
-warning-summary singular/plural rendering.
+```shell
+python -B -m unittest discover -s tests -p test_frontend.py -v
+```
 
-### Backend behavioral checks ([backend](test_backend.py))
+The [frontend suite](test_frontend.py) imports the lexer, parser, and analyzer
+without needing llvmlite or Clang. It covers locations, migration diagnostics,
+declarations, precedence, entry-point checks, parameter errors, mutability,
+scope-aware warnings, array-length tracking, and deferred function inference.
+It also analyzes all eight numbered examples and checks intentional failures
+and warning examples. This executes compiler frontend code, but does not emit
+IR or run generated programs.
 
-Require llvmlite; skipped cleanly when it is not installed. Verify all three
-examples compile to valid IR, the Hello World program emits a `printf` call,
-inferred function results survive through code generation, and
-`compile_with_diagnostics()` returns warnings alongside IR.
+Length-builtin tests cover valid/empty arrays, invalid types and arity, reserved
+function names, inference from array parameters and forward results, and dynamic
+indexes left for runtime checks. A mocked CLI test checks successful exits,
+nonzero child exits, and signal-termination mapping without building or spawning
+a native program.
 
-### Native example checks ([native](test_native.py))
+## LLVM backend behavior
 
-Require Clang **and** `KINETIC_NATIVE_TESTS=1`; skipped otherwise. Build each
-example to a real binary and assert its expected output.
+```shell
+python -B -m unittest discover -s tests -p test_backend.py -v
+```
 
-These checks do not require llvmlite or Clang. They do not execute compiler code,
-check dynamic import behavior, generate or verify LLVM IR, build a distribution,
-or compile and run Kinetic programs. Source-consistency checks do not prove that
-the parser accepts or rejects programs correctly. The workflow check inspects
-its command and action references; it is not a full YAML or GitHub Actions validator.
-These are not compiler-behavior tests.
+The [backend suite](test_backend.py) requires llvmlite and skips when unavailable.
+It generates verified IR for every top-level example, checks Hello World output
+content in IR, tests inferred function results, and inspects collected warnings.
+It does not recursively include intentionally invalid diagnostic examples.
+Discovery requires a nonempty example set rather than a hard-coded file count.
+This is compilation to IR, even though it does not build or run native binaries.
 
-## CI and local verification
+Array tests inspect metadata construction/extraction, aggregate stores/loads,
+forwarding, empty arrays, shadowing, and control-flow integration. Structural
+LLVM assertions check that the failure block traps and that element pointer
+arithmetic and loads appear only after the bounds branch. These backend tests
+require IR generation; they are not part of static-only verification.
 
-The [GitHub workflow](../.github/workflows/ci.yml) runs the same checker on pushes,
-pull requests, and manual dispatches. Its matrix uses Python 3.10 and 3.14 on
-Windows and Linux. Local runs provide fast feedback; CI provides consistent
-checks for shared changes. Neither substitutes for behavioral regression tests.
+## General runner
 
-## Future compiler regression tests
+```shell
+python -B tools/check.py
+```
 
-Language changes should gain focused regression coverage here when behavioral
-testing is introduced. Keep test fixtures separate from the user-facing
-[examples](../examples/README.md), and add specialized suites only when they
-contain actual tests.
+The [runner](../tools/check.py) discovers all suites. Backend tests run
+automatically when llvmlite is installed; only native execution has a separate
+opt-in flag. Therefore the runner is **not** appropriate for static-only tasks.
 
-For the existing manual native-build workflow, see
-[contributing](../CONTRIBUTING.md). That workflow must not be used for static-only tasks.
+## Native examples — opt-in locally, enforced in CI
+
+The [native suite](test_native.py) requires Clang and llvmlite. It runs in
+hosted CI on every push; locally it is skipped unless native tests are enabled
+and Clang is available, and opting in without llvmlite is not supported. Each
+test builds in a temporary directory and checks an expected output fragment.
+Coverage includes all eight numbered examples, including the status-handling
+and byte-processing demonstrations.
+
+Additional native tests check lengths and successful reads across function calls,
+copies, and reassignment; they also check nonzero exits for negative, upper-bound,
+empty-array, and shortened-array accesses. Runtime-failure examples are compiled
+and executed separately. Trap status is checked as nonzero rather than assuming
+a specific platform's signal number.
+
+PowerShell:
+
+```powershell
+$env:KINETIC_NATIVE_TESTS = "1"
+python -B -m unittest discover -s tests -p test_native.py -v
+Remove-Item Env:KINETIC_NATIVE_TESTS
+```
+
+Unix-like shell:
+
+```shell
+KINETIC_NATIVE_TESTS=1 python -B -m unittest discover -s tests -p test_native.py -v
+```
+
+These commands compile and execute programs. Do not use them during static-only
+work; the hosted native CI job already runs this suite with Clang on each push.
+Expected outputs and written tests are not execution evidence — treat a green
+hosted native job as the record of observed native behavior.
+
+## CI and evidence
+
+The [workflow](../.github/workflows/ci.yml) runs the general runner in its
+Windows/Linux Python 3.10/3.14 matrix without installing llvmlite. A separate
+Ubuntu Python 3.10 job installs the runtime dependency and runs frontend/backend
+tests. A third Ubuntu job enables native testing and uses the runner-provided
+Clang toolchain to build and execute every numbered example, the array metadata
+checks, and the runtime-failure programs with nonzero-exit expectations.
+
+Report passed, failed, and skipped suites separately. A green layout check does
+not prove compiler behavior, and a locally skipped native suite is not passing
+behavioral verification — the hosted native job is. Keep future regression tests
+in these shared suites instead of duplicating assertions in CI.

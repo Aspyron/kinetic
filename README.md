@@ -4,7 +4,7 @@ A small language compiler, written in Python and targeting LLVM.
 
 [Language guide](docs/syntax_guide.md) · [Architecture](docs/architecture.md) · [Installation](INSTALL.md) · [Contributing](CONTRIBUTING.md) · [Roadmap](ROADMAP.md)
 
-Kinetic is an early compiler prototype (1.1.1). It reads Kinetic source, performs
+Kinetic is an early compiler prototype (1.2.0). It reads Kinetic source, performs
 lexical, syntactic, and type analysis, emits verified textual LLVM IR through
 llvmlite, and uses Clang to produce a native executable.
 
@@ -18,6 +18,7 @@ memory-safety model.
 - Immutable bindings with opt-in mutation.
 - Conditional branches and loops.
 - Integer and string values, integer arrays, and array indexing.
+- Array element counts through the length builtin and runtime checks on indexed reads.
 - A built-in printing operation for one integer or string at a time.
 
 Start with the [language guide](docs/syntax_guide.md) and the programs in
@@ -73,9 +74,9 @@ one clear location.
 | --- | --- |
 | [Compiler](compiler/README.md) | A flat Python package containing all compiler stages and the CLI. |
 | [Documentation](docs/README.md) | Language reference, architecture, and repository design. |
-| [Examples](examples/README.md) | Small programs demonstrating the 1.1.1 language. |
+| [Examples](examples/README.md) | Eight numbered programs plus compile-time error, runtime-failure, and warning examples for 1.2.0. |
 | [Tools](tools/README.md) | Repository maintenance utilities, separate from the compiler CLI. |
-| [Tests](tests/README.md) | Static repository checks; no native builds are required. |
+| [Tests](tests/README.md) | Separate layout, frontend, backend, and opt-in native suites. |
 | [Package configuration](pyproject.toml) | Python packaging and the optional installed command. |
 
 See the [layout guide](docs/repository_layout.md) for the directory responsibilities.
@@ -85,24 +86,47 @@ See the [layout guide](docs/repository_layout.md) for the directory responsibili
 Run the dependency-free, static-only repository checks:
 
 ```shell
-python -B tools/check.py
+python -B -m unittest discover -s tests -p test_layout.py -v
 ```
 
-The same command runs static checks (syntax, layout, links, keyword mapping)
-plus **frontend behavioral tests** against the lexer, parser, and analyzer —
-including the new compile-time diagnostics. Backend and native suites skip
-cleanly without llvmlite or Clang.
+This checks syntax, layout, links, and keyword mapping without importing the
+compiler or generating IR. The general [test runner](tools/check.py) also
+discovers behavioral tests: frontend tests run directly, backend tests generate
+IR when llvmlite is installed, and native tests require explicit opt-in plus
+Clang and llvmlite. Do not use that general runner for static-only work.
 
-The [GitHub Actions workflow](.github/workflows/ci.yml) runs the same checker on
-pushes and pull requests, using Python 3.10 and 3.14 on Windows and Linux. It can
-also be started manually from GitHub's Actions tab. A passing static check is not
-a compiler-behavior result; targeted manual checks remain useful when native
-builds are appropriate. See [contributing](CONTRIBUTING.md).
+The [GitHub Actions workflow](.github/workflows/ci.yml) runs on pushes, pull
+requests, and manual dispatches. Its Windows/Linux matrix runs the general
+runner on Python 3.10 and 3.14 without installing llvmlite. A separate Ubuntu
+Python 3.10 job installs the runtime dependency and runs frontend/backend tests.
+A third Ubuntu job enables native testing and uses the runner-provided Clang
+toolchain to build and execute all eight numbered examples plus the
+runtime-failure programs, so every push is verified end to end. See
+[contributing](CONTRIBUTING.md).
+
+### New in 1.2.0
+
+The [array-length example](examples/08_array_lengths.kn) demonstrates
+[`len()`](docs/syntax_guide.md:117): an integer-array element count that travels
+with the array through copies, reassignment, and function calls. The
+[byte-processing example](examples/07_byte_processing.kn) now uses this builtin
+instead of a manually synchronized length.
+
+Every indexed read emits a negative/upper-bound check before computing the
+element address and loading it. A failed runtime check traps, and run mode
+returns failure. [Runtime-failure examples](examples/runtime_errors/README.md)
+are separate from compile-time diagnostic examples. These checks do not detect
+dangling array storage, make arrays resizable, or provide production memory safety.
+
+This is an implementation change, not only a design update. Frontend, IR, native,
+and CLI regression tests cover it, and the hosted native CI job builds and runs
+the native suites on every push. The
+[bootstrap interface](docs/bootstrap_interface.md) itself remains a specification.
 
 ## Direction
 
 The current goal is to build the foundations needed for a compiler written in
-Kinetic that can compile itself. Version 1.1.1 is not self-hosting yet. The
+Kinetic that can compile itself. Version 1.2.0 is not self-hosting yet. The
 [roadmap](ROADMAP.md) separates completed work, current planning, and future milestones.
 
 ## License

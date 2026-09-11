@@ -39,6 +39,13 @@ class TypeAnalyzer:
             )
 
         for function in program.functions:
+            if function.name == "len":
+                location = function.location
+                raise CompileError(
+                    "cannot redefine builtin 'len'",
+                    location.line if location else None,
+                    location.column if location else None,
+                )
             seen_parameters: set[str] = set()
             for parameter in function.parameters:
                 if parameter in seen_parameters:
@@ -92,9 +99,6 @@ class TypeAnalyzer:
             if signature.result is KType.UNKNOWN:
                 signature.result = KType.VOID
 
-        # Re-check once with settled signatures. During inference, UNKNOWN is a
-        # temporary fact and must not cause calls such as print(identity(1)) to
-        # fail before the callee's return type has propagated.
         self._final_validation = True
         for function in self.program.functions:
             self._analyze_function(function)
@@ -376,8 +380,10 @@ class TypeAnalyzer:
                 expression.collection, environment, used
             )
             self._unify(collection_type, KType.INT_ARRAY, "array indexing collection")
+            self._constrain_name(expression.collection, KType.INT_ARRAY, environment)
             index_type = self._expr_type(expression.index, environment, used)
             self._unify(index_type, KType.INT, "array index")
+            self._constrain_name(expression.index, KType.INT, environment)
             if (
                 isinstance(expression.collection, NameExpr)
                 and isinstance(expression.index, NumberExpr)
@@ -441,6 +447,22 @@ class TypeAnalyzer:
             self._expr_type(argument, environment, used)
             for argument in expression.arguments
         ]
+        if expression.callee == "len":
+            line, column = self._location_of(expression)
+            if len(argument_types) != 1:
+                raise CompileError("len expects exactly one integer array", line, column)
+            argument_type = argument_types[0]
+            if argument_type not in (KType.INT_ARRAY, KType.UNKNOWN):
+                raise CompileError("len expects exactly one integer array", line, column)
+            argument = expression.arguments[0]
+            self._constrain_name(argument, KType.INT_ARRAY, environment)
+            if (
+                self._final_validation
+                and argument_type is KType.UNKNOWN
+                and not isinstance(argument, NameExpr)
+            ):
+                raise CompileError("could not infer array argument to len", line, column)
+            return KType.INT
         if expression.callee == "print":
             printable_types = (KType.INT, KType.STRING)
             if not self._final_validation:

@@ -1,0 +1,5 @@
+// COMPILE-TIME ERROR: len requires exactly one argument.
+
+func main() {
+    print(len())
+}

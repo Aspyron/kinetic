@@ -5,7 +5,7 @@
 Kinetic's next major destination is **self-hosting**: a compiler written in
 Kinetic that can compile its own source and build a working successor compiler.
 
-The current compiler is a Python 1.1.1 prototype. It is not self-hosting, and no
+The current compiler is a Python 1.2.0 prototype. It is not self-hosting, and no
 compiler stage has been ported to Kinetic yet. The language and runtime need
 additional capabilities before that port is practical.
 
@@ -31,8 +31,10 @@ prototype feature is not a promise of production readiness or memory safety.
 
 See the [syntax guide](docs/syntax_guide.md) for the current language and the
 [architecture guide](docs/architecture.md) for the implementation. Frontend
-behavioral tests run without any external dependency; backend tests require
-llvmlite and native tests require Clang (both are opt-in and skip cleanly).
+behavioral tests run without any external dependency. Backend tests require
+llvmlite and run when it is installed; native tests additionally require Clang
+and opt in through an environment flag, which hosted CI sets. See
+[test commands](tests/README.md) for static-only work.
 
 ## In progress
 
@@ -43,13 +45,28 @@ The compiler sources, examples, and guides now use
 [`mut`](compiler/lexer.py:35). The [Hello World example](examples/01_hello.kn)
 shows the function declaration in a complete program.
 
-The [GitHub workflow](.github/workflows/ci.yml) is configured to run the shared
-static checker on Windows and Linux. Local static verification has passed;
-native behavior checks for the syntax change and the first hosted CI run are
-still pending. Do not mark those verification steps complete based on static
-source inspection alone.
+The [GitHub workflow](.github/workflows/ci.yml) runs the shared general test
+runner on Windows and Linux without installing llvmlite. A separate Ubuntu job
+installs the dependency and runs frontend/backend tests. A third Ubuntu job
+enables native testing and uses the runner-provided Clang toolchain to build
+and execute every numbered example, the array metadata checks, and the
+runtime-failure programs with nonzero-exit expectations. Hosted logs now cover
+frontend behavior, IR generation, and native end-to-end execution.
 
-### Self-hosting preparation
+### Array-size handling and runtime read checks
+
+The 1.2.0 implementation adds a pointer/count array representation, an
+integer-array length builtin, and runtime lower/upper-bound checks before
+indexed reads. Metadata travels through copies, reassignment, and function calls.
+The [byte-processing](examples/07_byte_processing.kn) and
+[array-length](examples/08_array_lengths.kn) programs exercise these changes.
+
+Frontend, LLVM-structure, native-output, runtime-failure, and CLI-exit regression
+tests are defined, and the hosted native CI job executes the native suites on
+every push. These changes implement size queries and guarded reads, not
+resizable storage, indexed mutation, host services, or array lifetime safety.
+
+### Remaining preparation
 
 The current focus is identifying the smallest coherent language and runtime
 needed to implement a compiler. This is planning work, not an active compiler
@@ -74,17 +91,22 @@ sequence; their implementations remain future work.
   ([frontend](tests/test_frontend.py), [backend](tests/test_backend.py)).
 - [x] Add expected diagnostics for invalid programs (located errors, migration
   hints, warning emission, and summary pluralization).
-- [x] Specify and test scoping, inference, immutability, array bounds, and error
-  handling within the 1.0.0 language surface.
+- [x] Add focused regressions for scoping, inference, immutability, constant array
+  bounds, and error handling in the existing language.
+- [ ] Complete the semantic specification and regression coverage for array
+  lifetimes, dynamic bounds, and function results before treating the bootstrap
+  baseline as reliable.
 - [x] Define the supported toolchain versions (llvmlite pinned in
   [requirements.txt](requirements.txt), Python 3.10+, Clang for native builds)
-  and a repeatable verification workflow ([static + behavioral CI](.github/workflows/ci.yml)).
-- [ ] Run the native example suite on a machine with Clang
-  (`KINETIC_NATIVE_TESTS=1 python -B tools/check.py`) and record expected outputs.
+  and a repeatable verification workflow ([static, behavioral, and native CI](.github/workflows/ci.yml)).
+- [x] Build and run the native example suite in hosted CI with Clang and native
+  testing enabled; the Ubuntu native job exercises every numbered example and
+  the runtime-failure programs on each push.
 
-**Status:** substantially complete. The remaining item is the first hosted CI
-run plus a native-build pass on a Clang-equipped machine; neither changes the
-1.0.0 language, they only confirm the toolchain end to end.
+**Verification status:** hosted CI covers frontend behavior, verified IR
+generation, and native end-to-end execution. Uncovered semantic cases around
+array lifetimes, dynamic bounds, and function results remain open before the
+bootstrap baseline can be treated as reliable.
 
 ### 2. Add the language and runtime building blocks
 
@@ -92,13 +114,20 @@ run plus a native-build pass on a Clang-equipped machine; neither changes the
   slicing, and construction of output strings.
 - [ ] Data structures suitable for compiler records and variants, growable
   buffers, and symbol lookup; choose the minimum useful design before adding features.
-- [ ] Mutable indexed storage and explicit collection-size handling.
+- [ ] Mutable indexed storage.
+- [ ] Validate and close explicit collection-size handling and runtime read
+  guards: the length builtin, array metadata, and read checks are implemented
+  in 1.2.0 and covered by hosted frontend, backend, and native CI; the remaining
+  semantic work is defining lifetime and mutation rules around them.
 - [ ] Defined allocation and lifetime rules for compiler-owned data, with checks
   appropriate to the chosen design.
 - [ ] File input/output, command-line arguments, diagnostics, and error/status reporting.
 - [ ] Multi-file organization and a way to resolve compiler modules.
-- [ ] A documented interface to native services and the LLVM/Clang toolchain
-  that does not require Python-specific llvmlite APIs inside Kinetic code.
+- [x] A documented interface to native services and the LLVM/Clang toolchain
+  that does not require Python-specific llvmlite APIs inside Kinetic code
+  ([bootstrap host interface](docs/bootstrap_interface.md)). This completes the
+  design contract only; the adapter, language bindings, and acceptance tests
+  remain unimplemented.
 
 **Complete when:** Kinetic programs can read source files, build and traverse
 compiler data structures, report errors, and write generated output with tested

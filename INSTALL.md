@@ -1,11 +1,15 @@
 # Installing and running Kinetic
 
+These instructions describe Kinetic 1.2.0. The version is declared in
+[package configuration](pyproject.toml).
+
 ## Requirements
 
 - Python 3.10 or newer, with a version supported by the llvmlite release you install.
   A stable Python release is recommended; prerelease interpreters may not have
   compatible llvmlite wheels.
-- llvmlite, the only runtime Python dependency.
+- llvmlite, the only runtime Python dependency, constrained to the 0.45 release
+  series in [requirements.txt](requirements.txt). This is not an exact patch pin.
 - Clang on your executable search path for native builds and execution.
 
 Clang is a separate toolchain dependency; installing the Python requirements
@@ -66,11 +70,26 @@ that warning is not a build failure.
 Common generated outputs are covered by [.gitignore](.gitignore). Remove artifacts
 after manual verification, especially binaries from newly added examples.
 
+The [example catalog](examples/README.md) includes eight valid numbered programs,
+compile-time failures, runtime bounds failures, and warning demonstrations. The bootstrap status and byte
+examples use the existing language; the proposed host services are not installed
+by these setup commands.
+
+Regenerate existing IR and binaries when upgrading to 1.2.0: the compiler's
+internal array representation now includes a length alongside the pointer.
+No additional dependency is needed for array lengths or runtime read guards.
+An invalid runtime index traps and returns failure from the run command; the
+exact native exit status or signal is platform-dependent. The runtime-failure
+examples are intentionally unsuccessful and must not be included in a
+success-only build-and-run loop.
+
 ## Static checks without a compiler toolchain
 
 ```shell
-python -B tools/check.py
+python -B -m unittest discover -s tests -p test_layout.py -v
 ```
 
 This does not require llvmlite or Clang and does not compile or run Kinetic code.
-See [tests](tests/README.md) for the scope of these checks.
+See [tests](tests/README.md) for the scope of these checks and the separate
+behavioral commands. The general [runner](tools/check.py) is not static-only:
+it discovers backend tests that generate IR when llvmlite is installed.

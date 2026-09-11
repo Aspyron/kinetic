@@ -1,0 +1,5 @@
+// COMPILE-TIME ERROR: len accepts one integer array, not a string.
+
+func main() {
+    print(len("hello"))
+}

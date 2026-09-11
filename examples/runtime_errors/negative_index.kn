@@ -1,0 +1,9 @@
+// This program passes frontend analysis but traps when the executable runs.
+// Negative indexes are rejected; they do not count backward from the end.
+
+func main() {
+    let values = [10, 20]
+    let index = 0 - 1
+    print(values[index])
+    print("Unreachable")
+}

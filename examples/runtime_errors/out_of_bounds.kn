@@ -1,0 +1,9 @@
+// This program passes frontend analysis but traps when the executable runs.
+// An index equal to the length is outside the array.
+
+func main() {
+    let values = [10, 20]
+    let index = len(values)
+    print(values[index])
+    print("Unreachable")
+}

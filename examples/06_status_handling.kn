@@ -1,0 +1,33 @@
+// Status-code handling: validate a byte and branch on the result.
+// The validator returns 0 for success and 1 for an invalid byte value.
+// This example is self-contained; no external service is called.
+
+func validate_byte(value) {
+    if value < 0 {
+        1
+    } else {
+        if value > 255 {
+            1
+        } else {
+            0
+        }
+    }
+}
+
+func main() {
+    let success = 0
+    let valid_status = validate_byte(65)
+
+    if valid_status == success {
+        print("Byte accepted")
+    } else {
+        print("Invalid byte")
+    }
+
+    let invalid_status = validate_byte(256)
+    if invalid_status == success {
+        print("Byte accepted")
+    } else {
+        print("Invalid byte")
+    }
+}

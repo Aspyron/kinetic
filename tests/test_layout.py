@@ -43,6 +43,8 @@ class RepositoryLayoutTests(unittest.TestCase):
         for name in (
             "01_hello.kn", "02_logic.kn", "03_arrays.kn",
             "04_bounds_checked.kn", "05_mutability.kn",
+            "06_status_handling.kn", "07_byte_processing.kn",
+            "08_array_lengths.kn",
         ):
             with self.subTest(example=name):
                 self.assertTrue((ROOT / "examples" / name).is_file())
@@ -51,12 +53,16 @@ class RepositoryLayoutTests(unittest.TestCase):
             "old_fn_keyword.kn", "old_let_mut.kn", "undefined_variable.kn",
             "type_mismatch.kn", "main_parameters.kn",
             "duplicate_parameters.kn",
+            "len_type.kn", "len_arity.kn",
         ):
             with self.subTest(error_example=name):
                 self.assertTrue((ROOT / "examples" / "errors" / name).is_file())
         for name in ("unused_variable.kn", "shadowing.kn"):
             with self.subTest(warning_example=name):
                 self.assertTrue((ROOT / "examples" / "warnings" / name).is_file())
+        for name in ("out_of_bounds.kn", "negative_index.kn"):
+            with self.subTest(runtime_example=name):
+                self.assertTrue((ROOT / "examples" / "runtime_errors" / name).is_file())
 
     def test_python_sources_parse(self):
         for path in python_sources():

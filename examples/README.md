@@ -1,20 +1,62 @@
 # Kinetic examples
 
-These are complete programs for learning and experimenting with the 1.1.1 language.
+These are complete programs for learning and experimenting with the 1.2.0 language.
 
 | Program | Focus |
 | --- | --- |
 | [Hello World](01_hello.kn) | A minimal function that prints a greeting. |
 | [Logic](02_logic.kn) | Immutable and mutable bindings, conditional branches, and loops. |
 | [Arrays](03_arrays.kn) | Array indexing, arithmetic, and a conditional check. |
-| [Bounds-checked arrays](04_bounds_checked.kn) | Compile-time array-length tracking on valid constant indexes. |
+| [Bounds-checked arrays](04_bounds_checked.kn) | Valid constant indexes with compile-time diagnostics and runtime read guards. |
 | [Mutability](05_mutability.kn) | `let` versus `mut` declarations and legal reassignment. |
+| [Status-code handling](06_status_handling.kn) | Validate a byte and handle the returned success or failure status. |
+| [Byte processing](07_byte_processing.kn) | Count ASCII digits using the array-length builtin. |
+| [Array lengths](08_array_lengths.kn) | Lengths of empty arrays, copies, reassigned bindings, and function arguments/results. |
 
 Read the [syntax guide](../docs/syntax_guide.md) for the language rules.
 
 Declarations use [`func`](../compiler/lexer.py:33) for functions,
 [`let`](../compiler/lexer.py:34) for immutable bindings, and standalone
 [`mut`](../compiler/lexer.py:35) for mutable bindings.
+
+## Bootstrap interface concepts
+
+The [status-handling example](06_status_handling.kn) and
+[byte-processing example](07_byte_processing.kn) use existing language features
+to illustrate concepts from the [bootstrap host interface](../docs/bootstrap_interface.md).
+They do not call native host services or implement opaque buffers, file I/O,
+or toolchain invocation. The byte example does use the implemented length
+builtin and runtime array-read checks.
+
+Expected output for the status-handling example:
+
+```text
+Byte accepted
+Invalid byte
+```
+
+Expected output for the byte-processing example:
+
+```text
+ASCII digits:
+3
+```
+
+Expected output for the [array-length example](08_array_lengths.kn):
+
+```text
+Array lengths:
+3
+2
+3
+0
+2
+```
+
+These are program output expectations, excluding the launcher's build/run
+messages. The hosted native CI job builds and runs every numbered example with
+Clang on each push and asserts these outputs; locally the native suite remains
+opt-in via `KINETIC_NATIVE_TESTS=1`.
 
 ## Diagnostic examples
 
@@ -26,6 +68,14 @@ The compiler emits structured diagnostics at compile time:
   parameters, removed syntax, undefined variables, type mismatches).
 - **[warnings/](warnings/README.md)** — programs that compile and run but emit
   `kinetic: warn` diagnostics (unused bindings, shadowing).
+- **[runtime_errors/](runtime_errors/README.md)** — programs that pass analysis
+  but terminate at a runtime bounds check. Keep these out of success-only runs.
+
+Array copies share element storage, but rebinding a mutable array updates that
+binding's pointer and length together without changing an earlier copy's length.
+Array storage remains stack-allocated: forwarding an array owned by an active
+caller can work, but returning an array literal created inside a helper can
+leave dangling storage. Bounds checks do not solve that lifetime problem.
 
 ## Running an example
 

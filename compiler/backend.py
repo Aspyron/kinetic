@@ -32,6 +32,7 @@ class LLVMBackend:
         self.i32 = ir.IntType(32)
         self.i64 = ir.IntType(64)
         self.ptr = self.i8.as_pointer()
+        self.array_type = ir.LiteralStructType([self.i64.as_pointer(), self.i64])
         self.functions: dict[str, ir.Function] = {}
         self.string_counter = 0
 
@@ -52,7 +53,7 @@ class LLVMBackend:
         if kind is KType.BOOL:
             return ir.IntType(1)
         if kind is KType.INT_ARRAY:
-            return self.i64.as_pointer()
+            return self.array_type
         if kind is KType.VOID:
             return ir.VoidType()
         raise CompileError("An unresolved type reached the LLVM backend")
@@ -107,6 +108,7 @@ class LLVMBackend:
                     muts.add(statement.name)
                 else:
                     env[statement.name] = val
+                    muts.discard(statement.name)
                 last_value = None
 
             elif isinstance(statement, AssignStatement):
@@ -195,18 +197,40 @@ class LLVMBackend:
                 return builder.load(val, name=expression.name + "_load")
             return val
         if isinstance(expression, ArrayExpr):
-            size = ir.Constant(self.i32, len(expression.elements))
+            size = ir.Constant(self.i64, len(expression.elements))
             ptr = builder.alloca(self.i64, size=size, name="array")
             for i, element in enumerate(expression.elements):
                 val = self._require_value(self._emit_expr(element, builder, environment, mutables))
                 idx = ir.Constant(self.i32, i)
                 elem_ptr = builder.gep(ptr, [idx], name="elem_ptr")
                 builder.store(val, elem_ptr)
-            return ptr
+            array = builder.insert_value(
+                ir.Constant(self.array_type, ir.Undefined), ptr, 0, name="array.data"
+            )
+            return builder.insert_value(array, size, 1, name="array.value")
         if isinstance(expression, IndexExpr):
             collection = self._require_value(self._emit_expr(expression.collection, builder, environment, mutables))
             index = self._require_value(self._emit_expr(expression.index, builder, environment, mutables))
-            elem_ptr = builder.gep(collection, [index], name="elem_ptr")
+            data = builder.extract_value(collection, 0, name="array.ptr")
+            length = builder.extract_value(collection, 1, name="array.length")
+            nonnegative = builder.icmp_signed(
+                ">=", index, ir.Constant(self.i64, 0), name="index.nonnegative"
+            )
+            below_length = builder.icmp_signed("<", index, length, name="index.below_length")
+            valid = builder.and_(nonnegative, below_length, name="index.valid")
+            valid_block = builder.function.append_basic_block("bounds.ok")
+            invalid_block = builder.function.append_basic_block("bounds.fail")
+            builder.cbranch(valid, valid_block, invalid_block)
+            builder.position_at_end(invalid_block)
+            trap = self.module.globals.get("llvm.trap")
+            if trap is None:
+                trap = ir.Function(
+                    self.module, ir.FunctionType(ir.VoidType(), []), name="llvm.trap"
+                )
+            builder.call(trap, [])
+            builder.unreachable()
+            builder.position_at_end(valid_block)
+            elem_ptr = builder.gep(data, [index], name="elem_ptr")
             return builder.load(elem_ptr, name="elem")
         if isinstance(expression, BinaryExpr):
             return self._emit_binary(expression, builder, environment, mutables)
@@ -250,6 +274,8 @@ class LLVMBackend:
             self._require_value(self._emit_expr(argument, builder, environment, mutables))
             for argument in expression.arguments
         ]
+        if expression.callee == "len":
+            return builder.extract_value(arguments[0], 1, name="array.length")
         if expression.callee == "print":
             self._emit_print(arguments[0], builder)
             return None

@@ -7,7 +7,7 @@ truth for repository structure, compiler boundaries, and verification rules.
 
 ## Working context
 
-- Kinetic is a 1.1.1 prototype compiler written in Python, using llvmlite and Clang.
+- Kinetic is a 1.2.0 prototype compiler written in Python, using llvmlite and Clang.
 - Compiler modules live directly in the [compiler package](compiler/README.md).
   Keep imports package-relative and avoid adding wrapper packages.
 - The [root launcher](kinetic.py) delegates to the same CLI as the installed command.
@@ -20,7 +20,7 @@ truth for repository structure, compiler boundaries, and verification rules.
 For repository and documentation changes, use the static-only checker:
 
 ```shell
-python -B tools/check.py
+python -B -m unittest discover -s tests -p test_layout.py -v
 ```
 
 It needs only Python and does not import Kinetic, emit LLVM IR, invoke Clang, or
@@ -29,13 +29,23 @@ invoke the compilation API or native build commands, even as a smoke test.
 Report skipped behavioral verification explicitly. Do not install dependencies
 just to run these static checks.
 
-The [GitHub workflow](.github/workflows/ci.yml) runs this same checker. Keep local
-and hosted checks aligned, and do not interpret static CI results as evidence
-that generated programs behave correctly.
+The general [runner](tools/check.py) discovers behavioral tests too; do not use it
+for static-only tasks. The [workflow](.github/workflows/ci.yml) has a general-test
+matrix, a frontend/backend job with llvmlite installed, and a native job that
+enables native testing and builds and runs the example suite with Clang. Keep
+local and hosted test logic aligned.
 
 ## Roadmap discipline
 
 Read [ROADMAP.md](ROADMAP.md) when planning language work. Self-hosting is a future
 target, not an existing capability. Keep implemented functionality, planning,
 and future work distinct; do not mark a milestone complete without evidence.
-The 1.1.1 prototype does not provide a production memory-safety model.
+The 1.2.0 prototype does not provide a production memory-safety model. Array
+lengths and runtime read guards are implemented, but arrays remain stack-backed
+and lifetime checking is not provided. Report behavioral verification based on
+what was actually run: locally skipped suites are not passing verification,
+while the hosted native CI job records end-to-end execution on each push.
+
+The [bootstrap contract](docs/bootstrap_interface.md) describes proposed native
+services, not implemented functionality. Keep explanations in documentation and
+examples rather than Python comments or docstrings.

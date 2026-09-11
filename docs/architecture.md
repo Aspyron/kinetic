@@ -1,6 +1,6 @@
 # Compiler architecture
 
-Kinetic's 1.1.1 implementation lives in the [compiler source directory](../compiler/README.md).
+Kinetic's 1.2.0 implementation lives in the [compiler source directory](../compiler/README.md).
 It is a flat Python package with separate modules for each compilation stage.
 
 ## Entry points
@@ -25,14 +25,14 @@ no separate implementations for these entry points.
 | IR verification | Textual IR → verified textual IR | [Pipeline coordinator](../compiler/compiler.py) using llvmlite's LLVM bindings |
 | Native build | Verified IR → native executable | [CLI](../compiler/cli.py) invoking Clang |
 
-The public orchestration functions are
-[`compile_source()`](../compiler/compiler.py) and
-[`compile_with_diagnostics()`](../compiler/compiler.py). The latter returns a
-[`CompilationResult`](../compiler/diagnostics.py) carrying both the verified IR
-and a [`Diagnostics`](../compiler/diagnostics.py) collector. Errors raise
-located [`KineticError`](../compiler/errors.py) subclasses rendered by the CLI as
-`kinetic: error: line:column: message`; warnings are collected during analysis
-and printed with a pluralized summary such as `kinetic: 2 warnings emitted`.
+The pipeline is coordinated by
+[`compile_with_diagnostics()`](../compiler/compiler.py:7), which returns verified
+IR and a diagnostics collector. [`compile_source()`](../compiler/compiler.py:23)
+wraps it for callers that only need IR. Errors raise subclasses of
+[`KineticError`](../compiler/errors.py:1). The CLI displays line/column information
+where the error provides it; not every error currently has a location. Warnings
+are collected during analysis and displayed with a singular/plural summary.
+Errors stop the pipeline at the first failure; this is not multi-error recovery.
 
 The analyzer emits warnings for unused bindings and shadowing, and reports
 errors for immutable reassignment, undefined names, type mismatches, constant
@@ -53,6 +53,35 @@ The printing builtin is special-cased by both the analyzer and the backend and
 lowers to C's formatted-output function. It accepts exactly one integer or string.
 It is not evidence of a separate runtime or standard library.
 
+The array-length builtin is also handled by both stages. Analysis requires one
+integer array, supports parameter inference, rejects redefinition as a user
+function, and returns an integer type. The backend extracts the count from the
+array value after evaluating the argument once; no external length function is called.
+
+## Array representation and read checks
+
+The backend lowers integer arrays to an LLVM aggregate containing a data pointer
+and a 64-bit element count. Literals construct both fields, mutable bindings
+store/load the aggregate, and function signatures and value-producing branches
+carry the same aggregate. Reassignment therefore updates pointer and length
+together, and aliases keep their original metadata.
+
+Before each element read, the backend compares the signed index against zero
+and the array length. It branches to an element-address/load block only when
+both tests pass. The failure block calls the LLVM trap intrinsic and terminates
+with an unreachable instruction. No invalid element pointer is computed on that
+path. LLVM may later simplify redundant constant checks; the compiler emits them
+for every source-level read.
+
+Array allocation remains stack-based. Runtime range checks do not validate
+lifetimes, prevent stack exhaustion, or make returning local array storage safe.
+Forwarding caller-owned arrays is distinct from returning arrays allocated by
+the callee. A separate lifetime model is still required. This representation is
+an internal ABI change in 1.2.0, not the proposed host adapter's opaque-buffer ABI.
+
+The CLI preserves nonnegative child exit statuses and maps signal termination
+to failure, so a bounds trap does not appear as a successful run command.
+
 ## Package organization
 
 The [package initializer](../compiler/__init__.py) exposes the compilation API.
@@ -70,4 +99,18 @@ the repository root; the installed command uses the same code.
 
 The [roadmap](../ROADMAP.md) tracks the language, runtime, and validation work
 needed before Kinetic can host its own compiler. Those planned components are
-not part of the 1.1.1 implementation described here.
+not part of the 1.2.0 implementation described here.
+
+The [bootstrap host interface](bootstrap_interface.md) specifies the future
+native-service boundary, buffer ownership, and textual-IR build protocol. It is
+a design contract, not an implemented extension to the current compiler.
+
+The [status](../examples/06_status_handling.kn),
+[byte-processing](../examples/07_byte_processing.kn), and
+[array-length](../examples/08_array_lengths.kn) demonstrations use the current
+compiler. The byte and length examples exercise the new builtin and array
+metadata; none implements the host adapter, buffer handles, or native I/O.
+
+Verification is split into [layout, frontend, backend, and native suites](../tests/README.md).
+Only the explicit layout suite is static-only; the general runner can generate
+IR when llvmlite is available.

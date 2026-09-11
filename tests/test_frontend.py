@@ -348,6 +348,87 @@ class AnalyzerTests(unittest.TestCase):
         self.assertIn("print expects one integer or string argument", str(raised.exception))
 
 
+class ArrayLengthTests(unittest.TestCase):
+    def test_length_accepts_empty_and_nonempty_arrays(self):
+        for value in ("[]", "[1, 2, 3]"):
+            with self.subTest(value=value):
+                types, diagnostics = analyze(
+                    "func main() { let values = " + value + " print(len(values)) }"
+                )
+                self.assertEqual(types["main"].result.name, "INT")
+                self.assertEqual(diagnostics.warnings, [])
+
+    def test_length_rejects_wrong_types_and_arity_with_location(self):
+        for argument in ("", "1", '"abc"', "1 == 1", "[], []", "print(1)"):
+            with self.subTest(argument=argument):
+                with self.assertRaises(CompileError) as raised:
+                    analyze("func main() {\n  print(len(" + argument + "))\n}")
+                self.assertIn("len expects exactly one integer array", str(raised.exception))
+                self.assertEqual(raised.exception.line, 2)
+
+    def test_length_infers_array_parameter_before_caller(self):
+        types, _ = analyze(
+            "func count(values) { len(values) }\n"
+            "func main() { print(count([1, 2])) }"
+        )
+        self.assertEqual(types["count"].parameters[0].name, "INT_ARRAY")
+        self.assertEqual(types["count"].result.name, "INT")
+
+    def test_length_waits_for_forwarded_array_result(self):
+        types, _ = analyze(
+            "func main() { let values = [1, 2] print(len(identity(values))) }\n"
+            "func identity(values) { values }"
+        )
+        self.assertEqual(types["identity"].result.name, "INT_ARRAY")
+
+    def test_length_rejects_forward_result_that_is_not_an_array(self):
+        for body in ("1", ""):
+            with self.subTest(body=body):
+                with self.assertRaises(CompileError) as raised:
+                    analyze("func main() { print(len(make())) }\nfunc make() { " + body + " }")
+                self.assertIn("len expects exactly one integer array", str(raised.exception))
+
+    def test_length_cannot_be_redefined(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze("func len(value) { value }\nfunc main() {}")
+        self.assertIn("cannot redefine builtin 'len'", str(raised.exception))
+
+    def test_indexing_infers_array_and_integer_parameters(self):
+        types, _ = analyze(
+            "func read_at(values, index) { values[index] }\n"
+            "func main() { print(read_at([1, 2], 1)) }"
+        )
+        self.assertEqual([kind.name for kind in types["read_at"].parameters], ["INT_ARRAY", "INT"])
+
+    def test_dynamic_invalid_indexes_are_left_to_runtime_checks(self):
+        for index in ("0 - 1", "len(values)"):
+            with self.subTest(index=index):
+                types, _ = analyze(
+                    "func main() { let values = [1] let index = " + index + " print(values[index]) }"
+                )
+                self.assertIn("main", types)
+
+
+class RunExitStatusTests(unittest.TestCase):
+    def test_run_preserves_failure_status(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from compiler.cli import main
+
+        for child_status, expected in ((0, 0), (7, 7), (-4, 1)):
+            with self.subTest(child_status=child_status):
+                with (
+                    patch("sys.argv", ["kinetic", "run", "example.kn"]),
+                    patch("compiler.cli.build_command", return_value=Path("example.exe")),
+                    patch("compiler.cli.subprocess.run", return_value=SimpleNamespace(returncode=child_status)),
+                    redirect_stdout(StringIO()),
+                ):
+                    self.assertEqual(main(), expected)
+
+
 class DiagnosticExampleTests(unittest.TestCase):
     ERROR_CASES = {
         "immutable_reassign.kn": "cannot reassign immutable variable",
@@ -395,6 +476,7 @@ class DiagnosticExampleTests(unittest.TestCase):
         for name in (
             "01_hello.kn", "02_logic.kn", "03_arrays.kn",
             "04_bounds_checked.kn", "05_mutability.kn",
+            "06_status_handling.kn", "07_byte_processing.kn",
         ):
             with self.subTest(example=name):
                 text = Path("examples", name).read_text(encoding="utf-8")
