@@ -76,7 +76,7 @@ if speed > speed_limit {
 }
 ```
 
-*(Note: In 1.0.0, we currently support `==`, `<`, and `>` for comparisons).*
+*(Note: comparisons cover `==`, `!=`, `<`, `>`, `<=`, and `>=`; see the operators section below.)*
 
 ## 4. Loops (doing things repeatedly)
 
@@ -110,6 +110,25 @@ keeps that fact only when every possible path agrees, so a stale length is not
 used for a later constant bounds diagnostic.
 
 Behind the scenes, the LLVM backend uses pointer arithmetic to access array elements. This is a prototype implementation, not a guarantee of memory safety or zero runtime cost.
+
+## 6. Operators (combining values)
+
+Integers support arithmetic, remainder, bitwise, and shift operators:
+
+```text
+print(7 % 3)   // Remainder: 1
+print(5 & 6)   // Bitwise AND: 4
+print(5 | 6)   // Bitwise OR: 7
+print(5 ^ 6)   // Bitwise XOR: 3
+print(1 << 4)  // Shift left: 16
+print(32 >> 2) // Shift right: 8
+```
+
+Precedence follows C: multiplicative (`* / %`) binds tightest, then additive
+(`+ -`), shifts (`<< >>`), relational (`< > <= >=`), equality (`== !=`), and
+finally `&`, `^`, `|` in that order. Comparisons yield booleans for `if` and
+`while` conditions; every operator works on integers only. There is no unary
+`!` or unary minus in 1.1.1.
 
 ---
 

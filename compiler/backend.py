@@ -227,8 +227,15 @@ class LLVMBackend:
         right = self._require_value(
             self._emit_expr(expression.right, builder, environment, mutables)
         )
-        if expression.operator in ("==", "<", ">"):
-            ops = {"==": "==", "<": "<", ">": ">"}
+        if expression.operator in ("==", "!=", "<", ">", "<=", ">="):
+            ops = {
+                "==": "==",
+                "!=": "!=",
+                "<": "<",
+                ">": ">",
+                "<=": "<=",
+                ">=": ">=",
+            }
             return builder.icmp_signed(ops[expression.operator], left, right, name="cmp")
 
         operations = {
@@ -236,6 +243,12 @@ class LLVMBackend:
             "-": builder.sub,
             "*": builder.mul,
             "/": builder.sdiv,
+            "%": builder.srem,
+            "&": builder.and_,
+            "|": builder.or_,
+            "^": builder.xor,
+            "<<": builder.shl,
+            ">>": builder.ashr,
         }
         return operations[expression.operator](left, right, name="binop")
 

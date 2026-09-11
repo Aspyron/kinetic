@@ -49,7 +49,8 @@ warning-summary singular/plural rendering.
 
 Require llvmlite; skipped cleanly when it is not installed. Verify all three
 examples compile to valid IR, the Hello World program emits a `printf` call,
-inferred function results survive through code generation, and
+inferred function results survive through code generation, extended integer
+operators lower to the expected signed IR opcodes, and
 `compile_with_diagnostics()` returns warnings alongside IR.
 
 ### Native example checks ([native](test_native.py))

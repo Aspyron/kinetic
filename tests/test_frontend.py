@@ -52,6 +52,39 @@ class LexerTests(unittest.TestCase):
         )
         self.assertEqual(token.value, "a\nb")
 
+    def test_extended_operator_tokens_lex(self):
+        kinds = [token.kind for token in tokenize("% & | ^ << >> != <= >=")]
+        self.assertEqual(
+            kinds,
+            [
+                TokenKind.PERCENT,
+                TokenKind.AMP,
+                TokenKind.PIPE,
+                TokenKind.CARET,
+                TokenKind.LSHIFT,
+                TokenKind.RSHIFT,
+                TokenKind.NEQ,
+                TokenKind.LE,
+                TokenKind.GE,
+                TokenKind.EOF,
+            ],
+        )
+
+    def test_longest_match_wins_for_shift_and_comparison_tokens(self):
+        kinds = [token.kind for token in tokenize("<<<=>>>=!=<=")]
+        self.assertEqual(
+            kinds,
+            [
+                TokenKind.LSHIFT,
+                TokenKind.LE,
+                TokenKind.RSHIFT,
+                TokenKind.GE,
+                TokenKind.NEQ,
+                TokenKind.LE,
+                TokenKind.EOF,
+            ],
+        )
+
 
 class ParserTests(unittest.TestCase):
     def test_declarations_parse_with_mutability(self):
@@ -82,6 +115,43 @@ class ParserTests(unittest.TestCase):
         expression = program.functions[0].body[0].expression
         self.assertEqual(expression.operator, "+")
         self.assertEqual(expression.right.operator, "*")
+
+    def _assert_binds_below(self, source, outer, inner):
+        program = parse(f"func main() {{\n  {source}\n}}")
+        expression = program.functions[0].body[0].expression
+        self.assertEqual(expression.operator, outer)
+        self.assertEqual(expression.left.operator, inner)
+
+    def test_remainder_has_multiplicative_precedence(self):
+        program = parse("func main() {\n  1 + 2 % 3\n}")
+        expression = program.functions[0].body[0].expression
+        self.assertEqual(expression.operator, "+")
+        self.assertEqual(expression.right.operator, "%")
+
+    def test_shift_binds_below_additive(self):
+        self._assert_binds_below("1 + 2 << 3", "<<", "+")
+
+    def test_relational_binds_below_shift(self):
+        self._assert_binds_below("1 << 2 < 3", "<", "<<")
+
+    def test_equality_binds_below_relational(self):
+        self._assert_binds_below("1 < 2 == 3", "==", "<")
+
+    def test_bitwise_and_binds_below_equality(self):
+        self._assert_binds_below("1 == 2 & 3", "&", "==")
+
+    def test_bitwise_xor_binds_below_and(self):
+        self._assert_binds_below("1 & 2 ^ 3", "^", "&")
+
+    def test_bitwise_or_binds_below_xor(self):
+        self._assert_binds_below("1 ^ 2 | 3", "|", "^")
+
+    def test_extended_comparison_operators_parse(self):
+        for source, operator in (("1 != 2", "!="), ("1 <= 2", "<="), ("1 >= 2", ">=")):
+            with self.subTest(source=source):
+                program = parse(f"func main() {{\n  {source}\n}}")
+                expression = program.functions[0].body[0].expression
+                self.assertEqual(expression.operator, operator)
 
 
 class AnalyzerTests(unittest.TestCase):
@@ -346,6 +416,50 @@ class AnalyzerTests(unittest.TestCase):
         with self.assertRaises(CompileError) as raised:
             analyze("func main() {\n  print(1, 2)\n}")
         self.assertIn("print expects one integer or string argument", str(raised.exception))
+
+    def test_extended_comparison_operators_yield_bool_conditions(self):
+        types, _ = analyze(
+            "func main() {\n"
+            "  if 1 != 2 {\n"
+            "    print(1)\n"
+            "  }\n"
+            "  if 1 <= 2 {\n"
+            "    print(2)\n"
+            "  }\n"
+            "  mut i = 0\n"
+            "  while i >= 3 {\n"
+            "    i = i + 1\n"
+            "  }\n"
+            "}"
+        )
+        self.assertIn("main", types)
+
+    def test_comparison_results_are_not_integers(self):
+        for source in ("1 != 2", "1 <= 2", "1 >= 2"):
+            with self.subTest(source=source):
+                with self.assertRaises(CompileError) as raised:
+                    analyze(f"func main() {{\n  print(({source}) + 1)\n}}")
+                self.assertIn("requires integers", str(raised.exception))
+
+    def test_bitwise_and_shift_operators_accept_integers(self):
+        types, _ = analyze(
+            "func main() {\n"
+            "  print(7 % 3)\n"
+            "  print(5 & 6)\n"
+            "  print(5 | 6)\n"
+            "  print(5 ^ 6)\n"
+            "  print(1 << 4)\n"
+            "  print(32 >> 2)\n"
+            "}"
+        )
+        self.assertIn("main", types)
+
+    def test_extended_operators_reject_non_integers(self):
+        for source in ('"a" % 1', '"a" & 1', '"a" | 1', '"a" ^ 1', '"a" << 1', '1 >> "a"'):
+            with self.subTest(source=source):
+                with self.assertRaises(CompileError) as raised:
+                    analyze(f"func main() {{\n  print({source})\n}}")
+                self.assertIn("requires integers", str(raised.exception))
 
 
 class DiagnosticExampleTests(unittest.TestCase):

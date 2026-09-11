@@ -145,11 +145,47 @@ class Parser:
         return ExpressionStatement(expression.location, expression)
 
     def _parse_expression(self) -> Expr:
-        return self._parse_equality()
+        return self._parse_bitwise_or()
+
+    def _parse_bitwise_or(self) -> Expr:
+        expression = self._parse_bitwise_xor()
+        while self.current.kind is TokenKind.PIPE:
+            operator_token = self._advance()
+            expression = BinaryExpr(
+                self._location(operator_token),
+                operator_token.value,
+                expression,
+                self._parse_bitwise_xor(),
+            )
+        return expression
+
+    def _parse_bitwise_xor(self) -> Expr:
+        expression = self._parse_bitwise_and()
+        while self.current.kind is TokenKind.CARET:
+            operator_token = self._advance()
+            expression = BinaryExpr(
+                self._location(operator_token),
+                operator_token.value,
+                expression,
+                self._parse_bitwise_and(),
+            )
+        return expression
+
+    def _parse_bitwise_and(self) -> Expr:
+        expression = self._parse_equality()
+        while self.current.kind is TokenKind.AMP:
+            operator_token = self._advance()
+            expression = BinaryExpr(
+                self._location(operator_token),
+                operator_token.value,
+                expression,
+                self._parse_equality(),
+            )
+        return expression
 
     def _parse_equality(self) -> Expr:
         expression = self._parse_relational()
-        while self.current.kind is TokenKind.EQEQ:
+        while self.current.kind in (TokenKind.EQEQ, TokenKind.NEQ):
             operator_token = self._advance()
             expression = BinaryExpr(
                 self._location(operator_token),
@@ -160,8 +196,25 @@ class Parser:
         return expression
 
     def _parse_relational(self) -> Expr:
+        expression = self._parse_shift()
+        while self.current.kind in (
+            TokenKind.LT,
+            TokenKind.GT,
+            TokenKind.LE,
+            TokenKind.GE,
+        ):
+            operator_token = self._advance()
+            expression = BinaryExpr(
+                self._location(operator_token),
+                operator_token.value,
+                expression,
+                self._parse_shift(),
+            )
+        return expression
+
+    def _parse_shift(self) -> Expr:
         expression = self._parse_additive()
-        while self.current.kind in (TokenKind.LT, TokenKind.GT):
+        while self.current.kind in (TokenKind.LSHIFT, TokenKind.RSHIFT):
             operator_token = self._advance()
             expression = BinaryExpr(
                 self._location(operator_token),
@@ -185,7 +238,11 @@ class Parser:
 
     def _parse_multiplicative(self) -> Expr:
         expression = self._parse_postfix()
-        while self.current.kind in (TokenKind.STAR, TokenKind.SLASH):
+        while self.current.kind in (
+            TokenKind.STAR,
+            TokenKind.SLASH,
+            TokenKind.PERCENT,
+        ):
             operator_token = self._advance()
             expression = BinaryExpr(
                 self._location(operator_token),

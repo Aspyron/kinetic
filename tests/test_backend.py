@@ -53,6 +53,43 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(len(result.diagnostics.warnings), 1)
         self.assertIn("define", result.llvm_ir)
 
+    def test_extended_operators_lower_to_expected_opcodes(self):
+        from compiler.compiler import compile_source
+
+        llvm_ir = compile_source(
+            "func main() {\n"
+            "  let a = 7 % 3\n"
+            "  let b = 5 & 6\n"
+            "  let c = 5 | 6\n"
+            "  let d = 5 ^ 6\n"
+            "  let e = 1 << 4\n"
+            "  let f = 32 >> 2\n"
+            "  if a != b {\n"
+            "    print(a)\n"
+            "  }\n"
+            "  if a <= b {\n"
+            "    print(b)\n"
+            "  }\n"
+            "  if a >= b {\n"
+            "    print(c)\n"
+            "  }\n"
+            "  print(d + e + f)\n"
+            "}"
+        )
+        for opcode in (
+            "srem i64",
+            "and i64",
+            "or i64",
+            "xor i64",
+            "shl i64",
+            "ashr i64",
+            "icmp ne i64",
+            "icmp sle i64",
+            "icmp sge i64",
+        ):
+            with self.subTest(opcode=opcode):
+                self.assertIn(opcode, llvm_ir)
+
 
 if __name__ == "__main__":
     unittest.main()

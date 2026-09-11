@@ -430,7 +430,7 @@ class TypeAnalyzer:
             )
         self._constrain_name(expression.left, KType.INT, environment)
         self._constrain_name(expression.right, KType.INT, environment)
-        if expression.operator in ("==", "<", ">"):
+        if expression.operator in ("==", "!=", "<", ">", "<=", ">="):
             return KType.BOOL
         return KType.INT
 

@@ -89,7 +89,8 @@ handling in both stages.
 
 The [syntax guide](docs/syntax_guide.md) documents the 1.1.1 language. The three
 numbered [examples](examples/README.md) cover inference, control flow, mutation,
-and arrays. Comparisons remain limited to equality, less-than, and greater-than.
+and arrays. Comparisons cover `==`, `!=`, `<`, `>`, `<=`, and `>=`; integers
+also support `% & | ^ << >>` alongside `+ - * /`.
 
 Declarations use [`func`](compiler/lexer.py:33) for functions,
 [`let`](compiler/lexer.py:34) for immutable bindings, and standalone
