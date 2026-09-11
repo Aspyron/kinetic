@@ -87,7 +87,7 @@ special-cased in both the analyzer and backend, lowers to C's formatted-output
 function, and accepts exactly one integer or string. New builtins need matching
 handling in both stages.
 
-The [syntax guide](docs/syntax_guide.md) documents the 1.1.1 language. The three
+The [syntax guide](docs/syntax_guide.md) documents the 1.1.1 language. The
 numbered [examples](examples/README.md) cover inference, control flow, mutation,
 and arrays. Comparisons cover `==`, `!=`, `<`, `>`, `<=`, and `>=`; integers
 also support `% & | ^ << >>` alongside `+ - * /`.

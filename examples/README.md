@@ -9,6 +9,7 @@ These are complete programs for learning and experimenting with the 1.1.1 langua
 | [Arrays](03_arrays.kn) | Array indexing, arithmetic, and a conditional check. |
 | [Bounds-checked arrays](04_bounds_checked.kn) | Compile-time array-length tracking on valid constant indexes. |
 | [Mutability](05_mutability.kn) | `let` versus `mut` declarations and legal reassignment. |
+| [Array writes](06_array_write.kn) | Indexed assignment to mutable array elements, including in a loop. |
 
 Read the [syntax guide](../docs/syntax_guide.md) for the language rules.
 

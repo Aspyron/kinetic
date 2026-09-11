@@ -9,6 +9,7 @@ from .ast import (
     ExpressionStatement,
     Function,
     IfStatement,
+    IndexAssignStatement,
     IndexExpr,
     LetStatement,
     NameExpr,
@@ -113,6 +114,20 @@ class LLVMBackend:
                 val = self._require_value(self._emit_expr(statement.value, builder, env, muts))
                 ptr = env[statement.name]
                 builder.store(val, ptr)
+                last_value = None
+
+            elif isinstance(statement, IndexAssignStatement):
+                collection = self._require_value(
+                    self._emit_expr(statement.collection, builder, env, muts)
+                )
+                index = self._require_value(
+                    self._emit_expr(statement.index, builder, env, muts)
+                )
+                val = self._require_value(
+                    self._emit_expr(statement.value, builder, env, muts)
+                )
+                elem_ptr = builder.gep(collection, [index], name="elem_ptr")
+                builder.store(val, elem_ptr)
                 last_value = None
 
             elif isinstance(statement, WhileStatement):

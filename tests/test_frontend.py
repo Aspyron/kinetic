@@ -153,6 +153,32 @@ class ParserTests(unittest.TestCase):
                 expression = program.functions[0].body[0].expression
                 self.assertEqual(expression.operator, operator)
 
+    def test_index_assignment_parses_as_statement(self):
+        from compiler.ast import IndexAssignStatement
+
+        program = parse("func main() {\n  mut xs = [1, 2]\n  xs[1] = 9\n}")
+        statement = program.functions[0].body[1]
+        self.assertIsInstance(statement, IndexAssignStatement)
+        self.assertEqual(statement.collection.name, "xs")
+        self.assertEqual(statement.index.value, 1)
+        self.assertEqual(statement.value.value, 9)
+
+    def test_index_assignment_accepts_expression_index(self):
+        from compiler.ast import IndexAssignStatement
+
+        program = parse("func main() {\n  mut xs = [1, 2]\n  mut i = 0\n  xs[i + 1] = 9\n}")
+        statement = program.functions[0].body[2]
+        self.assertIsInstance(statement, IndexAssignStatement)
+        self.assertEqual(statement.index.operator, "+")
+
+    def test_index_expression_statement_still_parses(self):
+        from compiler.ast import ExpressionStatement, IndexExpr
+
+        program = parse("func main() {\n  let xs = [1, 2]\n  xs[0]\n}")
+        statement = program.functions[0].body[1]
+        self.assertIsInstance(statement, ExpressionStatement)
+        self.assertIsInstance(statement.expression, IndexExpr)
+
 
 class AnalyzerTests(unittest.TestCase):
     def test_missing_main_is_an_error(self):
@@ -461,6 +487,66 @@ class AnalyzerTests(unittest.TestCase):
                     analyze(f"func main() {{\n  print({source})\n}}")
                 self.assertIn("requires integers", str(raised.exception))
 
+    def test_index_assignment_on_mutable_array_is_accepted(self):
+        types, _ = analyze(
+            "func main() {\n"
+            "  mut xs = [1, 2]\n"
+            "  xs[1] = 9\n"
+            "  print(xs[1])\n"
+            "}"
+        )
+        self.assertIn("main", types)
+
+    def test_index_assignment_rejects_immutable_array(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze("func main() {\n  let xs = [1, 2]\n  xs[1] = 9\n}")
+        self.assertIn("cannot reassign immutable variable", str(raised.exception))
+        self.assertEqual(raised.exception.line, 3)
+
+    def test_index_assignment_constant_bounds_is_an_error(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze("func main() {\n  mut xs = [1, 2]\n  xs[2] = 9\n}")
+        self.assertIn("out of bounds", str(raised.exception))
+        self.assertIn("length 2", str(raised.exception))
+
+    def test_index_assignment_requires_integer_index(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze('func main() {\n  mut xs = [1, 2]\n  xs["a"] = 9\n}')
+        self.assertIn("array index", str(raised.exception))
+
+    def test_index_assignment_requires_integer_value(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze('func main() {\n  mut xs = [1, 2]\n  xs[1] = "a"\n}')
+        self.assertIn("array element", str(raised.exception))
+
+    def test_index_assignment_requires_an_array(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze("func main() {\n  mut x = 1\n  x[0] = 9\n}")
+        self.assertIn("array indexing collection", str(raised.exception))
+
+    def test_index_assignment_counts_as_binding_use(self):
+        _, diagnostics = analyze(
+            "func main() {\n  mut xs = [1, 2]\n  xs[0] = 9\n}"
+        )
+        unused = [
+            warning
+            for warning in diagnostics.warnings
+            if "never used" in warning.message
+        ]
+        self.assertEqual(unused, [])
+
+    def test_index_assignment_preserves_known_length(self):
+        with self.assertRaises(CompileError) as raised:
+            analyze(
+                "func main() {\n"
+                "  mut xs = [1, 2]\n"
+                "  xs[0] = 9\n"
+                "  print(xs[5])\n"
+                "}"
+            )
+        self.assertIn("out of bounds", str(raised.exception))
+        self.assertIn("length 2", str(raised.exception))
+
 
 class DiagnosticExampleTests(unittest.TestCase):
     ERROR_CASES = {
@@ -508,7 +594,7 @@ class DiagnosticExampleTests(unittest.TestCase):
 
         for name in (
             "01_hello.kn", "02_logic.kn", "03_arrays.kn",
-            "04_bounds_checked.kn", "05_mutability.kn",
+            "04_bounds_checked.kn", "05_mutability.kn", "06_array_write.kn",
         ):
             with self.subTest(example=name):
                 text = Path("examples", name).read_text(encoding="utf-8")

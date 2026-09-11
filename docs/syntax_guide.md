@@ -35,8 +35,8 @@ counter = counter + 1 // Reassignment has no declaration keyword.
 ```
 
 Binding immutability is not a general guarantee that referenced data is deeply
-immutable or memory-safe. Version 1.0.0 supports integer-array reads, but does not implement
-indexed assignment or a production memory-safety model.
+immutable or memory-safe. Integer arrays support indexed reads and, on mutable
+bindings, indexed writes; neither provides a production memory-safety model.
 
 ## 2. Functions (doing things)
 
@@ -93,8 +93,9 @@ while i < 3 {
 
 ## 5. Arrays (lists of things)
 
-Version 1.0.0 arrays contain integers. Array literals and indexed reads are supported;
-arrays of strings and mixed element types are not part of the current language.
+Version 1.0.0 arrays contain integers. Array literals, indexed reads, and
+indexed writes on mutable bindings are supported; arrays of strings and mixed
+element types are not part of the current language.
 
 ```text
 let high_scores = [100, 95, 80]
@@ -102,6 +103,16 @@ let high_scores = [100, 95, 80]
 // Arrays are zero-indexed, meaning the first item is at position 0.
 let top_score = high_scores[0] 
 print(top_score)
+```
+
+An element of a mutable array can be replaced in place. The index and the new
+value must be integers, and constant indexes stay bounds-checked at compile
+time:
+
+```text
+mut high_scores = [100, 95, 80]
+high_scores[1] = 120
+print(high_scores[1])
 ```
 
 The analyzer preserves a known array length through direct binding copies and

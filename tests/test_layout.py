@@ -42,7 +42,7 @@ class RepositoryLayoutTests(unittest.TestCase):
         self.assertEqual(list(ROOT.glob("*.kn")), [])
         for name in (
             "01_hello.kn", "02_logic.kn", "03_arrays.kn",
-            "04_bounds_checked.kn", "05_mutability.kn",
+            "04_bounds_checked.kn", "05_mutability.kn", "06_array_write.kn",
         ):
             with self.subTest(example=name):
                 self.assertTrue((ROOT / "examples" / name).is_file())

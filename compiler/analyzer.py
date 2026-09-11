@@ -7,6 +7,7 @@ from .ast import (
     ExpressionStatement,
     Function,
     IfStatement,
+    IndexAssignStatement,
     IndexExpr,
     LetStatement,
     NameExpr,
@@ -275,6 +276,29 @@ class TypeAnalyzer:
                     self._array_lengths[statement.name] = known_length
                 else:
                     self._array_lengths.pop(statement.name, None)
+                last_type = KType.VOID
+
+            elif isinstance(statement, IndexAssignStatement):
+                line, column = self._location_of(statement)
+                collection_type = self._expr_type(
+                    statement.collection, environment, used
+                )
+                if statement.collection.name not in mutables:
+                    raise CompileError(
+                        f"cannot reassign immutable variable "
+                        f"{statement.collection.name!r}",
+                        line,
+                        column,
+                    )
+                self._unify(
+                    collection_type, KType.INT_ARRAY, "array indexing collection"
+                )
+                index_type = self._expr_type(statement.index, environment, used)
+                self._unify(index_type, KType.INT, "array index")
+                value_type = self._expr_type(statement.value, environment, used)
+                self._unify(value_type, KType.INT, "array element")
+                if isinstance(statement.index, NumberExpr):
+                    self._check_constant_bounds(statement, environment)
                 last_type = KType.VOID
 
             elif isinstance(statement, WhileStatement):

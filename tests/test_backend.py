@@ -15,7 +15,7 @@ class BackendTests(unittest.TestCase):
         from pathlib import Path
 
         examples = sorted(Path("examples").glob("*.kn"))
-        self.assertEqual(len(examples), 5)
+        self.assertEqual(len(examples), 6)
         for example in examples:
             with self.subTest(example=example.name):
                 llvm_ir = compile_source(example.read_text(encoding="utf-8"))
@@ -89,6 +89,18 @@ class BackendTests(unittest.TestCase):
         ):
             with self.subTest(opcode=opcode):
                 self.assertIn(opcode, llvm_ir)
+
+    def test_index_assignment_emits_element_store(self):
+        from compiler.compiler import compile_source
+
+        llvm_ir = compile_source(
+            "func main() {\n"
+            "  mut xs = [1, 2]\n"
+            "  xs[1] = 9\n"
+            "  print(xs[1])\n"
+            "}"
+        )
+        self.assertIn("store i64 9, ", llvm_ir)
 
 
 if __name__ == "__main__":

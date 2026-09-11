@@ -7,6 +7,7 @@ from .ast import (
     ExpressionStatement,
     Function,
     IfStatement,
+    IndexAssignStatement,
     IndexExpr,
     LetStatement,
     NameExpr,
@@ -140,6 +141,23 @@ class Parser:
                     name_token.value,
                     self._parse_expression(),
                 )
+            if (
+                self.index + 1 < len(self.tokens)
+                and self.tokens[self.index + 1].kind is TokenKind.LBRACKET
+            ):
+                position = self.index
+                name_token = self._advance()
+                self._advance()
+                index = self._parse_expression()
+                self._expect(TokenKind.RBRACKET, "expected ']' after the index")
+                if self._match(TokenKind.EQUAL) is not None:
+                    return IndexAssignStatement(
+                        self._location(name_token),
+                        NameExpr(self._location(name_token), name_token.value),
+                        index,
+                        self._parse_expression(),
+                    )
+                self.index = position
 
         expression = self._parse_expression()
         return ExpressionStatement(expression.location, expression)

@@ -1,0 +1,20 @@
+// A mutable array can be updated in place with indexed assignment. The
+// compiler keeps tracking the known length, so constant indexes stay
+// bounds-checked after a write.
+
+func main() {
+    mut scores = [10, 20, 30]
+
+    scores[1] = 99
+    print("Updated score:")
+    print(scores[1])
+
+    mut i = 0
+    while i < 3 {
+        scores[i] = scores[i] + 1
+        i = i + 1
+    }
+
+    print("Total after the loop:")
+    print(scores[0] + scores[1] + scores[2])
+}
