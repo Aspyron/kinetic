@@ -149,12 +149,19 @@ failed child process.
 
 These checks apply to literal arrays, aliases, mutable bindings, and array
 parameters, including after control-flow merges. They protect the index range,
-not the validity of an already dangling pointer. Array literals still allocate
-storage in the current function's stack frame. Do not return a locally created
-array from a helper and use it after that helper returns; this lifetime problem
-is not yet checked. There is still no resizing, indexed assignment, or general
-ownership model. The internal LLVM array representation changed in 1.2.0;
-regenerate IR and native binaries rather than mixing releases.
+not the validity of an already dangling pointer.
+
+Array literals allocate element storage from the C heap at the point of
+construction, and that storage lives until the process exits. Returning a
+locally created array from a helper is therefore well-defined: the data
+pointer and count in the returned aggregate stay valid for the rest of the
+program. The prototype never reuses or frees this storage, so every array
+construction leaks memory by design. This is a deliberate simplification, not
+a production memory-safety model.
+
+There is still no resizing, indexed assignment, or general ownership model.
+The internal LLVM array representation changed in 1.2.0; regenerate IR and
+native binaries rather than mixing releases.
 
 ---
 

@@ -63,8 +63,10 @@ The [byte-processing](examples/07_byte_processing.kn) and
 
 Frontend, LLVM-structure, native-output, runtime-failure, and CLI-exit regression
 tests are defined, and the hosted native CI job executes the native suites on
-every push. These changes implement size queries and guarded reads, not
-resizable storage, indexed mutation, host services, or array lifetime safety.
+every push. These changes implement size queries, guarded reads, and
+heap-allocated process-lived element storage; they do not provide resizable
+storage, indexed mutation, host services, storage reclamation, or a general
+lifetime-safety model.
 
 ### Remaining preparation
 
@@ -93,9 +95,11 @@ sequence; their implementations remain future work.
   hints, warning emission, and summary pluralization).
 - [x] Add focused regressions for scoping, inference, immutability, constant array
   bounds, and error handling in the existing language.
-- [ ] Complete the semantic specification and regression coverage for array
+- [x] Complete the semantic specification and regression coverage for array
   lifetimes, dynamic bounds, and function results before treating the bootstrap
-  baseline as reliable.
+  baseline as reliable (element storage is heap-allocated, lives until process
+  exit, and is never reclaimed; regression tests pin returned local arrays,
+  dynamic bounds, and function results).
 - [x] Define the supported toolchain versions (llvmlite pinned in
   [requirements.txt](requirements.txt), Python 3.10+, Clang for native builds)
   and a repeatable verification workflow ([static, behavioral, and native CI](.github/workflows/ci.yml)).
@@ -103,10 +107,12 @@ sequence; their implementations remain future work.
   testing enabled; the Ubuntu native job exercises every numbered example and
   the runtime-failure programs on each push.
 
-**Verification status:** hosted CI covers frontend behavior, verified IR
-generation, and native end-to-end execution. Uncovered semantic cases around
-array lifetimes, dynamic bounds, and function results remain open before the
-bootstrap baseline can be treated as reliable.
+**Verification status:** complete. Hosted CI covers frontend behavior, verified
+IR generation, and native end-to-end execution. Array lifetime semantics are
+specified and pinned by regression tests: element storage is heap-allocated,
+lives until process exit, and is never reclaimed, so locally created arrays may
+be returned from helpers; dynamic bounds and function results are covered
+across the frontend, backend, and native suites.
 
 ### 2. Add the language and runtime building blocks
 
@@ -117,8 +123,9 @@ bootstrap baseline can be treated as reliable.
 - [ ] Mutable indexed storage.
 - [ ] Validate and close explicit collection-size handling and runtime read
   guards: the length builtin, array metadata, and read checks are implemented
-  in 1.2.0 and covered by hosted frontend, backend, and native CI; the remaining
-  semantic work is defining lifetime and mutation rules around them.
+  in 1.2.0 and covered by hosted frontend, backend, and native CI; lifetime
+  rules are now defined (heap-allocated, process-lived, unreclaimed storage),
+  and the remaining semantic work is defining mutation rules around them.
 - [ ] Defined allocation and lifetime rules for compiler-owned data, with checks
   appropriate to the chosen design.
 - [ ] File input/output, command-line arguments, diagnostics, and error/status reporting.

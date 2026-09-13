@@ -198,7 +198,11 @@ class LLVMBackend:
             return val
         if isinstance(expression, ArrayExpr):
             size = ir.Constant(self.i64, len(expression.elements))
-            ptr = builder.alloca(self.i64, size=size, name="array")
+            ptr = builder.call(
+                self._malloc(),
+                [ir.Constant(self.i64, len(expression.elements) * 8)],
+                name="array.heap",
+            )
             for i, element in enumerate(expression.elements):
                 val = self._require_value(self._emit_expr(element, builder, environment, mutables))
                 idx = ir.Constant(self.i32, i)
@@ -291,6 +295,16 @@ class LLVMBackend:
         else:
             raise CompileError(f"print cannot emit LLVM type {value.type}")
         builder.call(self.printf, [format_string, value])
+
+    def _malloc(self) -> ir.Function:
+        malloc = self.module.globals.get("malloc")
+        if malloc is None:
+            malloc = ir.Function(
+                self.module,
+                ir.FunctionType(self.i64.as_pointer(), [self.i64]),
+                name="malloc",
+            )
+        return malloc
 
     @staticmethod
     def _require_value(value: ir.Value | None) -> ir.Value:

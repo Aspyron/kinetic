@@ -140,6 +140,25 @@ class BackendTests(unittest.TestCase):
         self.assertIn("bounds.ok", llvm_ir)
         self.assertIn("while.cond", llvm_ir)
 
+    def test_array_literals_allocate_element_storage_on_the_heap(self):
+        from compiler.compiler import compile_source
+
+        llvm_ir = compile_source(
+            "func main() { let values = [1, 2, 3] print(values[0]) }"
+        )
+        self.assertIn('declare i64* @"malloc"(i64', llvm_ir)
+        self.assertNotIn("alloca i64", llvm_ir)
+
+    def test_returned_local_array_keeps_heap_storage(self):
+        from compiler.compiler import compile_source
+
+        llvm_ir = compile_source(
+            "func make() { [7, 8] }\n"
+            "func main() { let values = make() print(values[0]) }"
+        )
+        self.assertEqual(llvm_ir.count('call i64* @"malloc"'), 1)
+        self.assertIn('call {i64*, i64} @"make"', llvm_ir)
+
     def test_immutable_array_shadow_does_not_load_as_mutable_storage(self):
         from compiler.compiler import compile_source
 
