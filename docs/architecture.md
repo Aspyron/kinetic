@@ -73,11 +73,16 @@ with an unreachable instruction. No invalid element pointer is computed on that
 path. LLVM may later simplify redundant constant checks; the compiler emits them
 for every source-level read.
 
-Array allocation remains stack-based. Runtime range checks do not validate
-lifetimes, prevent stack exhaustion, or make returning local array storage safe.
-Forwarding caller-owned arrays is distinct from returning arrays allocated by
-the callee. A separate lifetime model is still required. This representation is
-an internal ABI change in 1.2.0, not the proposed host adapter's opaque-buffer ABI.
+Array literals allocate element storage with the C allocator; the returned
+pointer is stored in the aggregate alongside the element count. Allocation
+happens at each construction site, including inside loops, and the storage is
+never freed or reused, so programs leak in proportion to the arrays they
+build. Returning a locally created array is well-defined because the storage
+outlives the constructing frame. Runtime range checks still protect only the
+index range of a live allocation; they do not reclaim storage, prevent
+unbounded growth, or constitute a production memory-safety model. This
+representation is an internal ABI change in 1.2.0, not the proposed host
+adapter's opaque-buffer ABI.
 
 The CLI preserves nonnegative child exit statuses and maps signal termination
 to failure, so a bounds trap does not appear as a successful run command.

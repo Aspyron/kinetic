@@ -41,8 +41,9 @@ Read [ROADMAP.md](ROADMAP.md) when planning language work. Self-hosting is a fut
 target, not an existing capability. Keep implemented functionality, planning,
 and future work distinct; do not mark a milestone complete without evidence.
 The 1.2.0 prototype does not provide a production memory-safety model. Array
-lengths and runtime read guards are implemented, but arrays remain stack-backed
-and lifetime checking is not provided. Report behavioral verification based on
+lengths and runtime read guards are implemented; array element storage is
+heap-allocated and lives until process exit without reclamation, which is a
+deliberate leak rather than lifetime safety. Report behavioral verification based on
 what was actually run: locally skipped suites are not passing verification,
 while the hosted native CI job records end-to-end execution on each push.
 

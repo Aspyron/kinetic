@@ -130,6 +130,44 @@ class NativeExampleTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "99\n2\n1\n7\n2\n")
 
+    def test_returned_local_array_survives_later_calls(self):
+        result = self._run_source(
+            "func make() { [7, 8, 9] }\n"
+            "func clobber() { let scratch = [40, 41, 42, 43, 44, 45, 46, 47] print(scratch[0]) }\n"
+            "func main() {\n"
+            "  let values = make()\n"
+            "  clobber()\n"
+            "  print(values[0])\n"
+            "  print(values[2])\n"
+            "  print(len(values))\n"
+            "}"
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "40\n7\n9\n3\n")
+
+    def test_array_results_through_branches_and_calls(self):
+        result = self._run_source(
+            "func pick(flag) { if flag > 0 { [1, 2] } else { [3] } }\n"
+            "func main() {\n"
+            "  let a = pick(1)\n"
+            "  let b = pick(0)\n"
+            "  print(len(a))\n"
+            "  print(a[1])\n"
+            "  print(len(b))\n"
+            "  print(b[0])\n"
+            "}"
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "2\n2\n1\n3\n")
+
+    def test_bounds_guard_applies_to_returned_arrays(self):
+        result = self._run_source(
+            "func make() { [5, 6] }\n"
+            "func main() { let values = make() let index = len(values) print(values[index]) print(\"Unreachable\") }"
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("Unreachable", result.stdout)
+
     def test_runtime_failure_examples_exit_unsuccessfully(self):
         root = Path(__file__).resolve().parents[1] / "examples" / "runtime_errors"
         for name in ("out_of_bounds.kn", "negative_index.kn"):

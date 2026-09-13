@@ -73,9 +73,10 @@ The compiler emits structured diagnostics at compile time:
 
 Array copies share element storage, but rebinding a mutable array updates that
 binding's pointer and length together without changing an earlier copy's length.
-Array storage remains stack-allocated: forwarding an array owned by an active
-caller can work, but returning an array literal created inside a helper can
-leave dangling storage. Bounds checks do not solve that lifetime problem.
+Element storage is heap-allocated at construction and lives until the process
+exits, so returning a locally created array is well-defined; the prototype never
+reclaims this storage and leaks it by design. Bounds checks protect the index
+range, not reclamation or a general memory-safety model.
 
 ## Running an example
 

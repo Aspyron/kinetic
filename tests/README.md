@@ -57,7 +57,8 @@ Discovery requires a nonempty example set rather than a hard-coded file count.
 This is compilation to IR, even though it does not build or run native binaries.
 
 Array tests inspect metadata construction/extraction, aggregate stores/loads,
-forwarding, empty arrays, shadowing, and control-flow integration. Structural
+forwarding, empty arrays, shadowing, control-flow integration, and heap
+allocation of element storage. Structural
 LLVM assertions check that the failure block traps and that element pointer
 arithmetic and loads appear only after the bounds branch. These backend tests
 require IR generation; they are not part of static-only verification.
@@ -82,8 +83,9 @@ Coverage includes all eight numbered examples, including the status-handling
 and byte-processing demonstrations.
 
 Additional native tests check lengths and successful reads across function calls,
-copies, and reassignment; they also check nonzero exits for negative, upper-bound,
-empty-array, and shortened-array accesses. Runtime-failure examples are compiled
+copies, and reassignment, including locally created arrays returned from helpers
+and read after later calls; they also check nonzero exits for negative,
+upper-bound, empty-array, shortened-array, and returned-array accesses. Runtime-failure examples are compiled
 and executed separately. Trap status is checked as nonzero rather than assuming
 a specific platform's signal number.
 

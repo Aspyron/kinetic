@@ -408,6 +408,13 @@ class ArrayLengthTests(unittest.TestCase):
                 )
                 self.assertIn("main", types)
 
+    def test_returning_locally_created_array_is_accepted(self):
+        types, _ = analyze(
+            "func make() { [1, 2, 3] }\n"
+            "func main() { let values = make() print(values[0]) }"
+        )
+        self.assertEqual(types["make"].result.name, "INT_ARRAY")
+
 
 class RunExitStatusTests(unittest.TestCase):
     def test_run_preserves_failure_status(self):

@@ -104,7 +104,10 @@ The array-length builtin accepts exactly one integer array. Arrays lower to
 pointer/count aggregates, including in function signatures and mutable storage.
 Every indexed read has a runtime range guard before element address calculation
 and loading; failure traps. Preserve both fields through copying/reassignment
-and do not equate bounds checking with lifetime safety. The CLI propagates failed
+and do not equate bounds checking with lifetime safety. Array element storage
+is heap-allocated at construction and lives until process exit; it is never
+freed or reused, so returning locally created arrays is well-defined but every
+construction leaks — do not describe this as reclamation or a memory-safety model. The CLI propagates failed
 child exit statuses. Test [runtime failures](examples/runtime_errors/README.md)
 separately from success examples when native execution is permitted.
 
