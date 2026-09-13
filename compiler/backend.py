@@ -203,6 +203,16 @@ class LLVMBackend:
                 [ir.Constant(self.i64, len(expression.elements) * 8)],
                 name="array.heap",
             )
+            if expression.elements:
+                alloc_failed = builder.icmp_signed(
+                    "==", ptr, ir.Constant(ptr.type, None), name="alloc.failed"
+                )
+                ok_block = builder.function.append_basic_block("alloc.ok")
+                fail_block = builder.function.append_basic_block("alloc.fail")
+                builder.cbranch(alloc_failed, fail_block, ok_block)
+                builder.position_at_end(fail_block)
+                self._emit_trap(builder)
+                builder.position_at_end(ok_block)
             for i, element in enumerate(expression.elements):
                 val = self._require_value(self._emit_expr(element, builder, environment, mutables))
                 idx = ir.Constant(self.i32, i)
@@ -226,13 +236,7 @@ class LLVMBackend:
             invalid_block = builder.function.append_basic_block("bounds.fail")
             builder.cbranch(valid, valid_block, invalid_block)
             builder.position_at_end(invalid_block)
-            trap = self.module.globals.get("llvm.trap")
-            if trap is None:
-                trap = ir.Function(
-                    self.module, ir.FunctionType(ir.VoidType(), []), name="llvm.trap"
-                )
-            builder.call(trap, [])
-            builder.unreachable()
+            self._emit_trap(builder)
             builder.position_at_end(valid_block)
             elem_ptr = builder.gep(data, [index], name="elem_ptr")
             return builder.load(elem_ptr, name="elem")
@@ -295,6 +299,15 @@ class LLVMBackend:
         else:
             raise CompileError(f"print cannot emit LLVM type {value.type}")
         builder.call(self.printf, [format_string, value])
+
+    def _emit_trap(self, builder: ir.IRBuilder) -> None:
+        trap = self.module.globals.get("llvm.trap")
+        if trap is None:
+            trap = ir.Function(
+                self.module, ir.FunctionType(ir.VoidType(), []), name="llvm.trap"
+            )
+        builder.call(trap, [])
+        builder.unreachable()
 
     def _malloc(self) -> ir.Function:
         malloc = self.module.globals.get("malloc")
