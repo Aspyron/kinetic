@@ -12,6 +12,7 @@ These are complete programs for learning and experimenting with the 1.2.0 langua
 | [Status-code handling](06_status_handling.kn) | Validate a byte and handle the returned success or failure status. |
 | [Byte processing](07_byte_processing.kn) | Count ASCII digits using the array-length builtin. |
 | [Array lengths](08_array_lengths.kn) | Lengths of empty arrays, copies, reassigned bindings, and function arguments/results. |
+| [Text operations](09_text.kn) | String length, byte reads, comparisons, slicing, and concatenation. |
 
 Read the [syntax guide](../docs/syntax_guide.md) for the language rules.
 
@@ -51,6 +52,18 @@ Array lengths:
 3
 0
 2
+```
+
+Expected output for the [text example](09_text.kn):
+
+```text
+Text operations:
+7
+75
+Kin
+Hello, Kinetic!
+equal
+ordered
 ```
 
 These are program output expectations, excluding the launcher's build/run

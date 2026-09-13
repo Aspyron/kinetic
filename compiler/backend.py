@@ -211,25 +211,15 @@ class LLVMBackend:
         if isinstance(expression, IndexExpr):
             collection = self._require_value(self._emit_expr(expression.collection, builder, environment, mutables))
             index = self._require_value(self._emit_expr(expression.index, builder, environment, mutables))
+            if collection.type == self.ptr:
+                length = builder.call(self._strlen(), [collection], name="text.length")
+                self._emit_index_guard(builder, index, length)
+                elem_ptr = builder.gep(collection, [index], name="elem_ptr")
+                byte = builder.load(elem_ptr, name="elem.byte")
+                return builder.zext(byte, self.i64, name="elem")
             data = builder.extract_value(collection, 0, name="array.ptr")
             length = builder.extract_value(collection, 1, name="array.length")
-            nonnegative = builder.icmp_signed(
-                ">=", index, ir.Constant(self.i64, 0), name="index.nonnegative"
-            )
-            below_length = builder.icmp_signed("<", index, length, name="index.below_length")
-            valid = builder.and_(nonnegative, below_length, name="index.valid")
-            valid_block = builder.function.append_basic_block("bounds.ok")
-            invalid_block = builder.function.append_basic_block("bounds.fail")
-            builder.cbranch(valid, valid_block, invalid_block)
-            builder.position_at_end(invalid_block)
-            trap = self.module.globals.get("llvm.trap")
-            if trap is None:
-                trap = ir.Function(
-                    self.module, ir.FunctionType(ir.VoidType(), []), name="llvm.trap"
-                )
-            builder.call(trap, [])
-            builder.unreachable()
-            builder.position_at_end(valid_block)
+            self._emit_index_guard(builder, index, length)
             elem_ptr = builder.gep(data, [index], name="elem_ptr")
             return builder.load(elem_ptr, name="elem")
         if isinstance(expression, BinaryExpr):
@@ -237,6 +227,66 @@ class LLVMBackend:
         if isinstance(expression, CallExpr):
             return self._emit_call(expression, builder, environment, mutables)
         raise AssertionError(f"Unhandled expression: {expression!r}")
+
+    def _emit_index_guard(
+        self, builder: ir.IRBuilder, index: ir.Value, length: ir.Value
+    ) -> None:
+        nonnegative = builder.icmp_signed(
+            ">=", index, ir.Constant(self.i64, 0), name="index.nonnegative"
+        )
+        below_length = builder.icmp_signed("<", index, length, name="index.below_length")
+        valid = builder.and_(nonnegative, below_length, name="index.valid")
+        self._emit_bounds_guard(builder, valid)
+
+    def _emit_bounds_guard(self, builder: ir.IRBuilder, valid: ir.Value) -> None:
+        valid_block = builder.function.append_basic_block("bounds.ok")
+        invalid_block = builder.function.append_basic_block("bounds.fail")
+        builder.cbranch(valid, valid_block, invalid_block)
+        builder.position_at_end(invalid_block)
+        trap = self.module.globals.get("llvm.trap")
+        if trap is None:
+            trap = ir.Function(
+                self.module, ir.FunctionType(ir.VoidType(), []), name="llvm.trap"
+            )
+        builder.call(trap, [])
+        builder.unreachable()
+        builder.position_at_end(valid_block)
+
+    def _strlen(self) -> ir.Function:
+        function = self.module.globals.get("strlen")
+        if function is None:
+            function = ir.Function(
+                self.module, ir.FunctionType(self.i64, [self.ptr]), name="strlen"
+            )
+        return function
+
+    def _strcmp(self) -> ir.Function:
+        function = self.module.globals.get("strcmp")
+        if function is None:
+            function = ir.Function(
+                self.module,
+                ir.FunctionType(self.i32, [self.ptr, self.ptr]),
+                name="strcmp",
+            )
+        return function
+
+    def _memcpy(self) -> ir.Function:
+        function = self.module.globals.get("memcpy")
+        if function is None:
+            function = ir.Function(
+                self.module,
+                ir.FunctionType(self.ptr, [self.ptr, self.ptr, self.i64]),
+                name="memcpy",
+            )
+        return function
+
+    def _malloc(self) -> ir.Function:
+        function = self.module.globals.get("malloc")
+        if function is None:
+            function = ir.Function(
+                self.module, ir.FunctionType(self.ptr, [self.i64]), name="malloc"
+            )
+        return function
 
     def _emit_binary(
         self,
@@ -251,6 +301,23 @@ class LLVMBackend:
         right = self._require_value(
             self._emit_expr(expression.right, builder, environment, mutables)
         )
+        if left.type == self.ptr and right.type == self.ptr:
+            if expression.operator == "+":
+                return self._emit_concat(left, right, builder)
+            if expression.operator in ("==", "<", ">"):
+                comparison = builder.call(
+                    self._strcmp(), [left, right], name="text.compare"
+                )
+                ops = {"==": "==", "<": "<", ">": ">"}
+                return builder.icmp_signed(
+                    ops[expression.operator],
+                    comparison,
+                    ir.Constant(self.i32, 0),
+                    name="cmp",
+                )
+            raise CompileError(
+                f"operator {expression.operator!r} is not defined for strings"
+            )
         if expression.operator in ("==", "<", ">"):
             ops = {"==": "==", "<": "<", ">": ">"}
             return builder.icmp_signed(ops[expression.operator], left, right, name="cmp")
@@ -262,6 +329,46 @@ class LLVMBackend:
             "/": builder.sdiv,
         }
         return operations[expression.operator](left, right, name="binop")
+
+    def _emit_concat(
+        self, left: ir.Value, right: ir.Value, builder: ir.IRBuilder
+    ) -> ir.Value:
+        left_length = builder.call(self._strlen(), [left], name="text.length")
+        right_length = builder.call(self._strlen(), [right], name="text.length")
+        count = builder.add(left_length, right_length, name="concat.count")
+        size = builder.add(count, ir.Constant(self.i64, 1), name="concat.size")
+        buffer = builder.call(self._malloc(), [size], name="concat.buffer")
+        builder.call(self._memcpy(), [buffer, left, left_length])
+        tail = builder.gep(buffer, [left_length], name="concat.tail")
+        tail_size = builder.add(
+            right_length, ir.Constant(self.i64, 1), name="concat.tail_size"
+        )
+        builder.call(self._memcpy(), [tail, right, tail_size])
+        return buffer
+
+    def _emit_slice(
+        self,
+        text: ir.Value,
+        start: ir.Value,
+        end: ir.Value,
+        builder: ir.IRBuilder,
+    ) -> ir.Value:
+        length = builder.call(self._strlen(), [text], name="text.length")
+        zero = ir.Constant(self.i64, 0)
+        start_ok = builder.icmp_signed(">=", start, zero, name="slice.start_ok")
+        order_ok = builder.icmp_signed(">=", end, start, name="slice.order_ok")
+        within_ok = builder.icmp_signed("<=", end, length, name="slice.within_ok")
+        valid = builder.and_(start_ok, order_ok, name="slice.ordered")
+        valid = builder.and_(valid, within_ok, name="slice.valid")
+        self._emit_bounds_guard(builder, valid)
+        count = builder.sub(end, start, name="slice.count")
+        size = builder.add(count, ir.Constant(self.i64, 1), name="slice.size")
+        buffer = builder.call(self._malloc(), [size], name="slice.buffer")
+        source = builder.gep(text, [start], name="slice.source")
+        builder.call(self._memcpy(), [buffer, source, count])
+        nul_ptr = builder.gep(buffer, [count], name="slice.nul")
+        builder.store(ir.Constant(self.i8, 0), nul_ptr)
+        return buffer
 
     def _emit_call(
         self,
@@ -275,7 +382,12 @@ class LLVMBackend:
             for argument in expression.arguments
         ]
         if expression.callee == "len":
-            return builder.extract_value(arguments[0], 1, name="array.length")
+            argument = arguments[0]
+            if argument.type == self.ptr:
+                return builder.call(self._strlen(), [argument], name="text.length")
+            return builder.extract_value(argument, 1, name="array.length")
+        if expression.callee == "slice":
+            return self._emit_slice(arguments[0], arguments[1], arguments[2], builder)
         if expression.callee == "print":
             self._emit_print(arguments[0], builder)
             return None

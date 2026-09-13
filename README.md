@@ -19,6 +19,7 @@ memory-safety model.
 - Conditional branches and loops.
 - Integer and string values, integer arrays, and array indexing.
 - Array element counts through the length builtin and runtime checks on indexed reads.
+- String length, byte reads, bytewise comparisons, slicing, and concatenation.
 - A built-in printing operation for one integer or string at a time.
 
 Start with the [language guide](docs/syntax_guide.md) and the programs in
@@ -74,7 +75,7 @@ one clear location.
 | --- | --- |
 | [Compiler](compiler/README.md) | A flat Python package containing all compiler stages and the CLI. |
 | [Documentation](docs/README.md) | Language reference, architecture, and repository design. |
-| [Examples](examples/README.md) | Eight numbered programs plus compile-time error, runtime-failure, and warning examples for 1.2.0. |
+| [Examples](examples/README.md) | Nine numbered programs plus compile-time error, runtime-failure, and warning examples. |
 | [Tools](tools/README.md) | Repository maintenance utilities, separate from the compiler CLI. |
 | [Tests](tests/README.md) | Separate layout, frontend, backend, and opt-in native suites. |
 | [Package configuration](pyproject.toml) | Python packaging and the optional installed command. |
@@ -100,7 +101,7 @@ requests, and manual dispatches. Its Windows/Linux matrix runs the general
 runner on Python 3.10 and 3.14 without installing llvmlite. A separate Ubuntu
 Python 3.10 job installs the runtime dependency and runs frontend/backend tests.
 A third Ubuntu job enables native testing and uses the runner-provided Clang
-toolchain to build and execute all eight numbered examples plus the
+toolchain to build and execute all nine numbered examples plus the
 runtime-failure programs, so every push is verified end to end. See
 [contributing](CONTRIBUTING.md).
 
