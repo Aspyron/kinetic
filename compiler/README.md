@@ -1,7 +1,7 @@
 # Compiler sources
 
 This directory is Kinetic's Python package. All compiler stages and the CLI live
-directly here, with one source file per concern. It implements Kinetic 1.2.2.
+directly here, with one source file per concern. It implements Kinetic 1.3.0.
 
 | Stage or concern | Source |
 | --- | --- |
@@ -28,13 +28,15 @@ directory directly.
 See the [architecture guide](../docs/architecture.md) for dependencies between stages.
 The analyzer and backend jointly implement the array-length builtin. The backend
 carries array pointers and element counts together and checks the index range
-before every element read. Mutable bindings store the whole aggregate, and
+before every element read and indexed write. Mutable bindings store the whole
+aggregate, and
 function arguments/results use the same representation. Element storage is
 heap-allocated at construction and lives until process exit; it is never
 reclaimed, which is a prototype simplification rather than a safety model.
 Nonempty-array allocations are checked for failure before any element is
 initialized; failure traps. Empty arrays permit a null pointer and retain a
-zero count. Indexed writes remain separate, unimplemented work.
+zero count. Indexed assignment writes through mutable bindings under the same
+range guard, and copies share element storage, so aliases observe writes.
 
 The [bootstrap host interface](../docs/bootstrap_interface.md) is a future design,
 not an additional implementation in this package. Its
