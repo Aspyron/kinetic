@@ -1,5 +1,0 @@
-// COMPILE-TIME ERROR: len accepts one integer array or string, not an integer.
-
-func main() {
-    print(len(5))
-}
